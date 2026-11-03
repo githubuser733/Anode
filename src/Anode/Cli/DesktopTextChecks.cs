@@ -21,6 +21,14 @@ internal static partial class DesktopChecks
             Require(capped.Bool("truncated") == true && capped.Str("truncationReason") == "maxElements"
                 && capped["nodes"]![0]!["textInfo"]!["complete"]!.GetValue<bool>() == false,
                 "Scoped read hid its node/field limits.");
+            var tail = ChatTextReader.Read(target, "Messages", 1, 20000, tail: true);
+            Require(tail["nodes"]!.AsArray().Count == 1 && tail["nodes"]![0]!["text"]!.ToString() == "C"
+                && tail.Bool("windowComplete") == true && tail.Bool("olderItemsOmitted") == true,
+                "Tail read did not return the newest requested item or hid omitted older items.");
+            var tailAll = ChatTextReader.Read(target, "Messages", 100, 20000, tail: true);
+            Require(tailAll["nodes"]![0]!["text"]!.ToString() == nodes[0]!["text"]!.ToString()
+                && tailAll["nodes"]![1]!["elementKey"]!.ToString() == nodes[1]!["elementKey"]!.ToString()
+                && tailAll.Bool("truncated") == false, "Tail order or provider identity was unstable.");
             try { ChatTextReader.Read(target, "Messages", 1, 0); throw new Exception("Invalid text limit was accepted."); }
             catch (ArgumentException) { }
             try { ChatTextReader.Read(target, "Messages", 1, 64, 0); throw new Exception("Invalid time budget was accepted."); }

@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory=$true)][string]$ListName,
     [ValidateRange(1,500)][int]$MaxElements=100,
     [ValidateRange(1,20000)][int]$MaxChars=10000,
-    [ValidateRange(1,20000)][int]$BudgetMs=4000
+    [ValidateRange(1,20000)][int]$BudgetMs=4000,
+    [switch]$Tail
 )
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
@@ -22,7 +23,9 @@ $target=Get-Process -Id $ProcessId
 if($target.SessionId -ne $session){throw 'Refusing a process outside the child session.'}
 # Use the same .NET UIA client as Anode. Windows PowerShell's legacy UIA client
 # exposed only a shallow tree for the installed WeChat build during live checks.
-$result=& $AnodeExecutable --channel main __chat-read --pid $ProcessId --window-title $WindowTitle --list-name $ListName --max-elements $MaxElements --max-chars $MaxChars --budget-ms $BudgetMs 2>&1 | Out-String
+$tailArgs=@()
+if($Tail){$tailArgs=@('--tail')}
+$result=& $AnodeExecutable --channel main __chat-read --pid $ProcessId --window-title $WindowTitle --list-name $ListName --max-elements $MaxElements --max-chars $MaxChars --budget-ms $BudgetMs @tailArgs 2>&1 | Out-String
 $code=$LASTEXITCODE
 if($code -ne 0){throw $result}
 $result

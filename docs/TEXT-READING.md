@@ -1,8 +1,8 @@
 # Text-first chat reading
 
 This extension adds bounded text recovery to Anode v0.11.3 plus the local Timeline baseline.
-It does not start a keyword monitor or send notifications. Use local keyword matching and
-incremental message tracking before involving an LLM.
+The reader does not start a keyword monitor or send notifications. The optional finite
+experiment below performs local keyword matching and incremental tracking without an LLM.
 
 ## Short messages
 
@@ -123,9 +123,63 @@ identity is reused within one read. Embedded controls from other processes still
 their own session checks. `processCheckMs` reports that validation cost for scoped reads.
 No focus, screenshot, clipboard operation or LLM call is performed by the worker.
 
+Add `--tail` (or `-Tail` in the wrapper) to read the newest requested direct children,
+returned in chronological list order. `windowComplete` means that the requested tail
+window was read or the list ended. It does not mean that all history was read.
+`olderItemsOmitted=true` and `truncated=true` are expected when older rows remain outside
+that window; `truncationReason=timeLimit` still requires attention. Check each field's
+`textInfo.complete` separately.
+
+`elementKey` is a hash of the UIA runtime ID for diagnostics, never a message ID or an
+action reference. The installed WeChat provider reused those IDs for different message
+rows during live testing. Do not deduplicate chat messages solely by this field.
+
 During live checks on this machine, Windows PowerShell's legacy UIA client saw a shallower
 WeChat tree than Anode's .NET client. The wrapper therefore delegates extraction to Anode;
 its behavior must be checked again if the installed app/runtime changes.
+
+## Finite monitoring experiment
+
+`scripts/measure-chat-monitor.py` measures an already-open chat through the existing
+Anode CLI/exec path. It requires Windows, Python, a ready verified child session, an
+existing desktop lease and a reader build supporting `--tail`. It never starts a seat,
+sends chat input, copies text or calls an LLM. It stops after the configured duration,
+a new `stop.flag` file in its output directory, or three consecutive runtime errors.
+
+```text
+python -B scripts/measure-chat-monitor.py --self-test
+python -B scripts/measure-chat-monitor.py --config <absolute-config-path>
+```
+
+The config is JSON with `root`, `anode` (the active CLI executable), `baselineReader`,
+`reader`, `agent`, `session`, `pid`, `windowTitle`, `listName`, `keywords`, `tailCount`,
+`durationSeconds`, `baselineSamples` and a new `output` directory. Paths must be absolute.
+The lease token is supplied as one JSON line on stdin with the `leaseToken` field; it is
+never stored in the config or evidence. The experiment releases its lease when it exits.
+
+Setup takes full-list baseline samples and seeds the latest tail without counting history
+as new. Subsequent polls compare ordered text suffix/prefix overlap. A lost overlap causes
+one larger tail read; if continuity is still absent, the batch is marked `unresolved` with
+a coverage gap. Runtime IDs are ignored for message tracking. Consecutive identical text
+and provider omissions can still hide changes; this is not a lossless chat archive.
+List items may include time separators or system text, so event counts describe text
+items, not necessarily individual chat messages. Changed older text is not guessed to be
+an edit.
+
+Newly observed text items are appended to `events.jsonl` before taking one screenshot per
+changed batch. Keyword matching is case-insensitive substring matching over the exposed
+name, including any sender/system text exposed by the app. It is a demonstration matcher.
+Capture stops at 100 images or once retained screenshots reach 100 MiB; the final image
+may cross the byte threshold. Skipped captures are recorded, and text logging continues.
+Snapshots, polls, errors, capture hashes and progress are retained in
+the local output directory; no external notification is sent.
+
+`summary.json` reports end-to-end read time, traversal time, cycle intervals, matching/log
+time, and detection-to-screenshot time separately. It does not measure the time from the
+message's network arrival to detection. CLI startup, exec IPC, UIA calls, capture and
+machine load all affect the measured polling frequency. The final in-flight poll may
+finish after the requested duration. Review `errors`, `partialPolls`, `coverageGaps` and
+`stopReason` before accepting the result.
 
 ## Verification and activation
 

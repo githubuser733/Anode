@@ -36,7 +36,7 @@ internal static class ChatTextReader
             var matches = WindowAccess.List().OfType<JsonObject>().Where(w => w.Int("pid") == pid && w.Str("title") == title).ToArray();
             if (matches.Length != 1) throw new InvalidOperationException("The selected child-session window is absent or ambiguous.");
             var target = WindowTarget.FromJson(matches[0].Obj("target")!);
-            var result = Task.Run(() => Read(target, list, maximum, chars, budget)).GetAwaiter().GetResult();
+            var result = Task.Run(() => Read(target, list, maximum, chars, budget, options.Flag("tail"))).GetAwaiter().GetResult();
             result["windowTitle"] = title;
             result["processId"] = pid;
             result["session"] = (int)Core.Session.ChildSession.CurrentSessionId();
@@ -46,7 +46,7 @@ internal static class ChatTextReader
         catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
     }
 
-    internal static JsonObject Read(WindowTarget target, string listName, int maximum, int chars, int budgetMs = 4000)
+    internal static JsonObject Read(WindowTarget target, string listName, int maximum, int chars, int budgetMs = 4000, bool tail = false)
     {
         if (maximum is < 1 or > 500 || chars is < 1 or > 20000 || budgetMs is < 1 or > 20000) throw new ArgumentException("Invalid text limits.");
         var watch = Stopwatch.StartNew();
@@ -81,7 +81,7 @@ internal static class ChatTextReader
         Verify(list.Cached.ProcessId);
         var nodes = new JsonArray();
         int budget = AccessibilityText.NameBudget;
-        var node = walker.GetFirstChild(list, cache);
+        var node = tail ? walker.GetLastChild(list, cache) : walker.GetFirstChild(list, cache);
         while (node is not null && nodes.Count < maximum && watch.ElapsedMilliseconds < budgetMs)
         {
             var data = node.Cached;
@@ -90,17 +90,28 @@ internal static class ChatTextReader
             {
                 var text = AccessibilityText.Known(data.Name, Math.Min(chars, budget), budget < chars ? "totalTextBudget" : "maxChars");
                 var entry = new JsonObject { ["index"] = nodes.Count, ["role"] = AccessibilityReader.Role(data.ControlType) };
+                int[]? identity = node.GetRuntimeId();
+                entry["elementKey"] = identity is { Length: > 0 }
+                    ? AccessibilityText.Fingerprint(string.Join(".", identity.Select(i => i.ToString(CultureInfo.InvariantCulture)))) : null;
                 text.Put(entry, "text", "name");
                 nodes.Add(entry);
                 budget -= text.Text.Length;
             }
-            node = walker.GetNextSibling(node, cache);
+            node = tail ? walker.GetPreviousSibling(node, cache) : walker.GetNextSibling(node, cache);
         }
         WindowAccess.Verify(target);
+        bool windowComplete = node is null || tail && nodes.Count >= maximum && watch.ElapsedMilliseconds < budgetMs;
+        if (tail)
+        {
+            nodes = new JsonArray(nodes.Reverse().Select(n => n!.DeepClone()).ToArray());
+            for (int i = 0; i < nodes.Count; i++) nodes[i]!["index"] = i;
+        }
         return new JsonObject
         {
             ["listName"] = listName, ["selectorMode"] = selectorMode, ["selectorVisited"] = visited, ["nodes"] = nodes,
             ["truncated"] = node is not null,
+            ["tailRead"] = tail, ["windowComplete"] = windowComplete,
+            ["olderItemsOmitted"] = tail && node is not null,
             ["truncationReason"] = node is null ? null : watch.ElapsedMilliseconds >= budgetMs ? "timeLimit" : "maxElements",
             ["budgetMs"] = budgetMs,
             ["elapsedMs"] = watch.ElapsedMilliseconds, ["processCheckMs"] = processCheckMs,
