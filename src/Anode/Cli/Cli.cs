@@ -80,6 +80,13 @@ internal static partial class Cli
                 return TextReadingChecks.Run();
             case "__chat-read":
                 return ChatTextReader.Run(rest);
+            case "__chat-notify":
+                return ChatNotifications.Run(rest);
+            case "__chat-fixture":
+                return ChatMonitorFixture.Run(rest);
+            case "__chat-lease":
+                ConsoleBridge.Attach();
+                return LeaseCommand(rest, existingSeatOnly: true).GetAwaiter().GetResult();
             case "__log-probe":
                 return DiagnosticsChecks.LogProbe(rest);
             case "__cursor-probe":

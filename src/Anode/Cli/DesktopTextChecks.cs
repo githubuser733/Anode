@@ -15,6 +15,17 @@ internal static partial class DesktopChecks
         {
             var full = ChatTextReader.Read(target, "Messages", 100, 20000);
             var nodes = full["nodes"]!.AsArray();
+            var cachedReader = new CachedChatReader(target, "Messages");
+            var cached = cachedReader.Read(100, 20000);
+            Require(cached["nodes"]!.AsArray().Select(n => n!["text"]!.ToString())
+                .SequenceEqual(nodes.Select(n => n!["text"]!.ToString())) && cached.Bool("windowComplete") == true,
+                "Bulk cache did not preserve direct child order and full text.");
+            var cachedTail = cachedReader.Read(1, 64);
+            Require(cachedTail["nodes"]![0]!["text"]!.ToString() == "C" && cachedTail.Bool("olderItemsOmitted") == true,
+                "Bulk tail hid its older rows or selected the wrong end.");
+            var recent = cachedReader.ReadRecent(2, 20000);
+            Require(recent["nodes"]!.AsArray().Select(n => n!["text"]!.ToString())
+                .SequenceEqual(nodes.Select(n => n!["text"]!.ToString())), "Resident tail changed text order.");
             Require(nodes.Count == 2 && full.Bool("truncated") == false && nodes[0]!["text"]!.ToString().Length == 7505,
                 "Scoped read failed to recover the full long message.");
             var capped = ChatTextReader.Read(target, "Messages", 1, 64);
@@ -38,6 +49,9 @@ internal static partial class DesktopChecks
         Hosted(new LoopWindow(messages: true, secretMessage: true), "Anode scoped password check", target =>
         {
             var result = ChatTextReader.Read(target, "Messages", 100, 20000);
+            var bulk = new CachedChatReader(target, "Messages").Read(100, 20000);
+            Require(bulk["nodes"]!.AsArray().Count == 1 && !bulk.ToJsonString().Contains(new string('x', 100), StringComparison.Ordinal),
+                "A protected message was exported by the bulk reader.");
             Require(result["nodes"]!.AsArray().Count == 1 && !result.ToJsonString().Contains(new string('x', 100), StringComparison.Ordinal),
                 "A protected message was exported by the scoped reader.");
             return "ok";

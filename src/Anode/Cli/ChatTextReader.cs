@@ -30,13 +30,23 @@ internal static class ChatTextReader
             string list = options.Value("list-name") ?? throw new ArgumentException("list-name is required.");
             int maximum = Number("max-elements", 100, 500), chars = Number("max-chars", 10000, 20000);
             int budget = Number("budget-ms", 4000, 20000);
+            int watchMs = Number("watch-ms", 0, 1200000);
+            int intervalMs = Number("interval-ms", 250, 10000);
+            string? streamPath = options.Value("stream");
+            if (watchMs > 0 && (streamPath is null || !Path.IsPathFullyQualified(streamPath)))
+                throw new ArgumentException("A resident read requires a new absolute --stream path.");
             if (pid < 1 || title.Length is 0 or > 256 || list.Length is 0 or > 256) throw new ArgumentException("A process, window title and list name are required.");
             Seat.SeatHost.VerifyCurrentSession();
             Core.Display.SeatDisplay.UsePhysicalPixels();
             var matches = WindowAccess.List().OfType<JsonObject>().Where(w => w.Int("pid") == pid && w.Str("title") == title).ToArray();
             if (matches.Length != 1) throw new InvalidOperationException("The selected child-session window is absent or ambiguous.");
             var target = WindowTarget.FromJson(matches[0].Obj("target")!);
-            var result = Task.Run(() => Read(target, list, maximum, chars, budget, options.Flag("tail"))).GetAwaiter().GetResult();
+            if (watchMs > 0)
+                return Task.Run(() => Watch(target, title, list, maximum, chars, watchMs, intervalMs, streamPath!, options.Flag("bulk")))
+                    .GetAwaiter().GetResult();
+            var result = Task.Run(() => options.Flag("bulk")
+                ? new CachedChatReader(target, list).Read(maximum, chars, options.Flag("tail"))
+                : Read(target, list, maximum, chars, budget, options.Flag("tail"))).GetAwaiter().GetResult();
             result["windowTitle"] = title;
             result["processId"] = pid;
             result["session"] = (int)Core.Session.ChildSession.CurrentSessionId();
@@ -44,6 +54,55 @@ internal static class ChatTextReader
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+    }
+
+    private static int Watch(WindowTarget target, string title, string list, int maximum, int chars,
+        int duration, int interval, string path, bool bulk)
+    {
+        using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+        using var output = new StreamWriter(file, new UTF8Encoding(false)) { AutoFlush = true };
+        using var requestsFile = new FileStream(path + ".requests", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.ReadWrite);
+        using var requests = new StreamReader(requestsFile, Encoding.ASCII);
+        var reader = new CachedChatReader(target, list);
+        var timer = Stopwatch.StartNew();
+        long sequence = 0, lastVerified = 0;
+        string? fingerprint = null;
+        try
+        {
+            while (timer.ElapsedMilliseconds < duration && file.Position < 64 * 1024 * 1024 && !File.Exists(path + ".stop"))
+            {
+                long start = timer.ElapsedMilliseconds;
+                if (start - lastVerified >= 5000) { Seat.SeatHost.VerifyCurrentSession(); lastVerified = start; }
+                bool catchup = false;
+                while (requests.ReadLine() is { } command) if (command == "catchup") catchup = true;
+                var snapshot = catchup ? reader.Read(500, chars) : bulk ? reader.Read(maximum, chars) : reader.ReadRecent(maximum, chars);
+                snapshot["catchup"] = catchup;
+                snapshot["sequence"] = ++sequence;
+                snapshot["observedAtUtc"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                snapshot["readStartedMs"] = start;
+                snapshot["session"] = (int)Core.Session.ChildSession.CurrentSessionId();
+                snapshot["processId"] = target.Pid;
+                snapshot["windowTitle"] = title;
+                string current = AccessibilityText.Fingerprint(snapshot["nodes"]!.ToJsonString());
+                bool changed = catchup || current != fingerprint;
+                snapshot["kind"] = changed ? "snapshot" : "heartbeat";
+                if (!changed) snapshot.Remove("nodes");
+                fingerprint = current;
+                output.WriteLine(snapshot.ToJsonString());
+                int remaining = interval - (int)(timer.ElapsedMilliseconds - start);
+                if (remaining > 0) Thread.Sleep(remaining);
+            }
+            output.WriteLine(new JsonObject { ["kind"] = "stopped", ["sequence"] = sequence,
+                ["elapsedMs"] = timer.ElapsedMilliseconds, ["stopRequested"] = File.Exists(path + ".stop") }.ToJsonString());
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            output.WriteLine(new JsonObject { ["kind"] = "error", ["sequence"] = sequence,
+                ["observedAtUtc"] = DateTime.UtcNow.ToString("O"), ["error"] = ex.Message }.ToJsonString());
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
     }
 
     internal static JsonObject Read(WindowTarget target, string listName, int maximum, int chars, int budgetMs = 4000, bool tail = false)

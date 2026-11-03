@@ -183,6 +183,83 @@ finish after the requested duration. Review `errors`, `partialPolls`, `coverageG
 
 ## Verification and activation
 
+### Resident keyword monitoring
+
+`scripts/watch-chat-monitor.py` is the long-running alternative to launching one reader
+per poll. It holds a verified list reference and requests fresh tail properties on each
+cycle. This is polling, not a promise that the application provides new-message events.
+An optional `--bulk` read uses [UIA child caching](https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/caching-in-ui-automation-clients).
+
+The resident `__chat-read` arguments are `--watch-ms` (1–1200000), `--interval-ms`
+(1–10000) and a new absolute `--stream` path. Use `--max-elements 6` for the hot path.
+The interval is a lower bound; provider calls and verification can take longer.
+The worker writes snapshots on changes and small heartbeat records otherwise. A new
+`<stream>.stop` file stops it; appending `catchup` and a newline to `<stream>.requests`
+asks for a bulk read of up to 500 exposed children. Each stream is limited to 64 MiB.
+The supervisor rotates bounded exec jobs, checks status, renews its lease, and restarts
+known failed readers with backoff. A SYNCHRONIZE-only [process wait handle](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject)
+detects an owned worker exit without waiting for the heartbeat watchdog. An uncertain launch is recovered by owned job ID or
+stops without replay. Human control or a lost lease stops the monitor.
+
+The supervisor config contains the finite experiment's executable/session/target fields,
+plus `parentSession`, `stateDirectory`, `output`, `intervalMs`, `segmentMs` and
+`durationSeconds` (0 keeps running until stopped). The existing lease token is one JSON
+line on stdin and is never saved. `output` must be new; reuse `stateDirectory` only for
+the same conversation. Stop with a new `stop.flag` in `output`. Optional `processName`
+rebinds a restarted application only when one window exactly matches both title and
+process name inside the verified child. A Windows-session change needs the launcher
+again with the new verified session. No login or seat startup is automated.
+
+Changed text and notification/capture tasks are committed to an append-only journal and
+flushed to disk before dispatch. Separate queues keep capture work out of notification
+dispatch. Journal replay restores pending tasks; interrupted file tails are retained in
+their original files. A retained OS-locked `owner.lock` prevents concurrent writers.
+A crash between notification display and its receipt can cause a repeated reminder;
+exactly-once human delivery is not promised. Long-term timing samples are bounded to
+10000 entries. Logs and images are never automatically deleted. Screenshot count/byte
+budgets stop further capture while text logging and notification continue.
+
+Desktop notifications use an opt-in parent-session helper, independent of the Viewer.
+It verifies its session with the daemon and exits when its owner or stop flag ends.
+The helper records `requested` after calling the Windows API and `shown` when Windows
+raises [BalloonTipShown](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.notifyicon.balloontipshown?view=windowsdesktop-10.0).
+These are not proof that a person read the alert. Windows settings can suppress or merge
+balloons; the journal retains every matched text item even when one batch has one popup.
+
+Tail continuity uses ordered text, never recycled runtime IDs. Lost overlap requests a
+larger read before generating alerts; unresolved coverage is reported rather than turning
+old history into new alerts. Partial fields trigger a warning and catchup. This monitor
+does not automate clipboard recovery for fields that remain incomplete. UIA-hidden,
+collapsed or omitted text and sufficiently large identical-message bursts remain limits.
+The first arrival after an empty baseline is still new. An unexpectedly empty window
+does not erase a previously established checkpoint.
+
+`scripts/start-keyword-monitor.ps1 -Config <config> -CheckOnly` verifies paths, hashes and
+the existing ready/view-only seat. Its launcher config adds `monitorScript`, `monitorSha256`,
+`readerSha256`, and `runsDirectory` to the target/settings fields above. Without `-CheckOnly`
+it dispatches an on-demand Windows task into the verified parent session, allowing the
+monitor to outlive its calling chat. It uses the existing interactive identity, no stored
+password, and no logon/boot trigger. A matching task is reused; a differing task is never
+overwritten. Task definitions and run directories are retained rather than deleted.
+An existing state lock/mutex prevents a duplicate collector. The private `__chat-lease`
+command refuses to start a daemon or stopped seat, even when acquiring the initial lease.
+
+`scripts/stop-keyword-monitor.ps1 -Config <config>` verifies each live process's script
+and runtime config before creating its stop flag. It does not stop the Viewer, log out
+Windows, terminate WeChat or delete task definitions. Stop before editing target settings
+or changing Windows sessions, then start again. The monitor holds the desktop lease while
+active; stopping it returns the seat to other agents. Human takeover also ends the run.
+
+Run `python -B scripts/watch-chat-monitor.py --self-test --out <new-absolute-directory>`
+for retained-journal, crash-tail, repeated-text, catchup and CLI-status checks.
+`scripts/test-chat-monitor-live.py` accepts a config with `root`, `anode`, `reader`,
+`agent`, `session`, `parentSession`, `keywords`, `testOutput` (new), and optional
+`injectReaderFailure`. Supply the current lease token on stdin. It creates an owned
+child-session fixture, waits for monitoring to be ready, publishes 28 known items
+(including repeats, a 20-item burst and a 5000-character message), verifies exact text
+counts, keyword hits, notifications and screenshot hashes, and closes only its own jobs.
+It never sends a real chat message. Fixture latency does not measure WeChat arrival time.
+
 ```powershell
 & .\anode.exe __text-check | Out-Host
 & .\anode.exe __timeline-check --out 'C:\new-absolute-evidence-directory' | Out-Host

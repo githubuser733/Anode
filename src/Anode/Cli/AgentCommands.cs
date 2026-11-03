@@ -49,7 +49,7 @@ internal static partial class Cli
         return client.RequestAsync(op, payload, timeoutMs, cancel);
     }
 
-    private static async Task<int> LeaseCommand(string[] args)
+    private static async Task<int> LeaseCommand(string[] args, bool existingSeatOnly = false)
     {
         var payload = new JsonObject { ["action"] = args.FirstOrDefault() ?? "status" };
         for (int i = 1; i < args.Length; i++)
@@ -72,9 +72,21 @@ internal static partial class Cli
         envelope["op"] = "lease";
         if (AgentAccess.Validate(envelope) is { } error) throw new UsageException(error);
         bool acquire = payload.Str("action") == "acquire";
-        using var client = await Connect(autoStart: acquire);
+        using var client = await Connect(autoStart: acquire && !existingSeatOnly);
         // A failed acquisition has already said why the daemon could not start; 3 matches `start`.
-        if (client is null) return acquire ? (_startBlocked ? 3 : 1) : NotRunning();
+        if (client is null) return existingSeatOnly ? NotRunning() : acquire ? (_startBlocked ? 3 : 1) : NotRunning();
+        if (existingSeatOnly && acquire)
+        {
+            var state = (await RequestAsync(client, "status")).Obj("result");
+            if (state?.Str("state") != "ready" || state.Bool("viewOnly") != true
+                || state.Int("parentSession") != Process.GetCurrentProcess().SessionId)
+            {
+                Console.Error.WriteLine("Monitoring requires a ready, view-only child and its existing parent session.");
+                return 1;
+            }
+            // A stopped daemon/seat must never be brought back by the monitor launcher.
+            payload["startSeat"] = false;
+        }
         if (!acquire || payload.Int("waitSeconds") is not int wait || wait == 0)
             return Report(CliLeaseError(await RequestAsync(client, "lease", payload, acquire ? 180000 : 60000)));
 
