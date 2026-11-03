@@ -123,6 +123,9 @@ internal static class WindowAccess
         var handle = Verify(target);
         switch (action)
         {
+            case "clipboard_checkpoint":
+            case "read_clipboard":
+                return ClipboardText.Handle(target, request);
             case "focus":
                 if (IsIconic(handle)) ShowWindowAsync(handle, 9);
                 FocusVerifiedWindow(handle);

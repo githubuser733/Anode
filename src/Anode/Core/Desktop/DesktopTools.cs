@@ -12,6 +12,8 @@ internal sealed class DesktopTools
     public DesktopTools(Func<JsonObject, CancellationToken, Task<JsonObject>>? worker = null) => _worker = worker ?? DesktopWorker.CallAsync;
     public void InvalidateObservations() => _references.InvalidateObservations();
     public void InvalidateLease() => _references.Clear();
+    internal static bool ShouldCapture(JsonObject args, JsonObject result) => (args.Bool("includeScreenshot") ?? true)
+        || args.Bool("screenshotOnTextIssue") == true && result.Bool("needsTextRecovery") == true;
 
     public static string? ToolName(string op) => op switch
     {
@@ -83,9 +85,9 @@ internal sealed class DesktopTools
                     result["expiresInSeconds"] = 90;
                     foreach (var element in result["elements"]!.AsArray().OfType<JsonObject>())
                     {
-                        element.Remove("path"); element.Remove("runtimeId"); element.Remove("processId");
+                        element.Remove("path"); element.Remove("runtimeId"); element.Remove("processId"); element.Remove("nameFingerprint");
                     }
-                    if (args.Bool("includeScreenshot") ?? true)
+                    if (ShouldCapture(args, result))
                     {
                         try
                         {

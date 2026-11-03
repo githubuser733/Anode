@@ -76,6 +76,8 @@ internal static partial class Cli
                 return ViewerPreview.Run(rest);
             case "__timeline-check":
                 return TimelineChecks.Run(rest);
+            case "__text-check":
+                return TextReadingChecks.Run();
             case "__log-probe":
                 return DiagnosticsChecks.LogProbe(rest);
             case "__cursor-probe":
@@ -178,12 +180,17 @@ internal static partial class Cli
                 if (Integer("max-elements") is int count) payload["maxElements"] = count;
                 if (Integer("max-depth") is int depth) payload["maxDepth"] = depth;
                 if (Integer("max-text") is int text) payload["maxTextChars"] = text;
+                if (Integer("max-name") is int name) payload["maxNameChars"] = name;
+                if (Integer("max-element-text") is int fieldMaximum) payload["maxElementTextChars"] = fieldMaximum;
+                if (options.Value("fallback-image") is not null) payload["screenshotOnTextIssue"] = true;
                 if (options.Flag("offscreen")) payload["includeOffscreen"] = true;
                 break;
             case "window":
                 tool = "seat_window";
                 if (At(0) is { } id) payload["windowId"] = id;
                 if (At(1) is { } action) payload["action"] = action;
+                if (options.Value("after-sequence") is { } sequence) payload["afterSequence"] = sequence;
+                if (Integer("max-chars") is int clipboardMaximum) payload["maxChars"] = clipboardMaximum;
                 foreach (string field in new[] { "x", "y", "width", "height" })
                     if (Integer(field) is int value) payload[field] = value;
                 break;
@@ -192,6 +199,8 @@ internal static partial class Cli
                 if (At(0) is { } snapshot) payload["snapshotId"] = snapshot;
                 if (At(1) is { } element) payload["elementId"] = element;
                 if (At(2) is { } operation) payload["action"] = operation;
+                if (Integer("max-chars") is int maximum) payload["maxChars"] = maximum;
+                if (options.Value("text-source") is { } source) payload["textSource"] = source;
                 foreach (string field in new[] { "value", "direction", "amount" })
                     if (options.Value(field) is { } value) payload[field] = value;
                 if (options.Value("number") is { } number)
@@ -214,7 +223,7 @@ internal static partial class Cli
             File.WriteAllText(html, Core.Desktop.DesktopPresentation.Html(result));
             Console.Error.WriteLine("Report: " + Path.GetFullPath(html));
         }
-        if (options.Value("image") is { } image && result.Obj("screenshot")?.Str("data") is { } data)
+        if ((options.Value("image") ?? options.Value("fallback-image")) is { } image && result.Obj("screenshot")?.Str("data") is { } data)
         {
             File.WriteAllBytes(image, Convert.FromBase64String(data));
             Console.Error.WriteLine("Screenshot: " + Path.GetFullPath(image));
@@ -916,22 +925,26 @@ internal static partial class Cli
             ("anode audio listen <file.wav> [--ms 5000] [--json]", "record browser, game and other seat sounds to a new file"),
             ("anode audio play <file.wav> [--json]", "play a WAV clip in the seat"),
             ("anode audio stop [--json]", "stop agent playback; apps keep their own sound")),
-        Row("Work in the seat", "inspect", "html= image= max-elements# max-depth# max-text# offscreen json", 1,
+        Row("Work in the seat", "inspect", "html= image= fallback-image= max-elements# max-depth# max-text# max-name# max-element-text# offscreen json", 1,
             "It prints a snapshotId and element IDs for `anode element`; they expire after 90 seconds. "
             + "--html writes a report and --image the screenshot.",
             ("anode inspect <windowId> [--html FILE] [--image FILE] [--json]", "read a window's accessible controls without focusing it"),
             ("", "Limits: --max-elements 1-500 (default 200), --max-depth 0-20 (default 8), --max-text 0-20000 characters "
-                + "(default 6000). --offscreen adds controls outside the visible area.")),
-        Row("Work in the seat", "window", "x# y# width# height# json", 2,
+                + "(default 6000), --max-name 1-20000 (default 500), --max-element-text 1-20000 (default 3000). "
+                + "--fallback-image FILE captures only incomplete/long text. --offscreen adds controls outside the visible area.")),
+        Row("Work in the seat", "window", "x# y# width# height# max-chars# after-sequence= json", 2,
             "raise tries to bring the window forward without keyboard focus; if Windows keeps it behind another window, raised: false and coveredBy.windowId identify the cover; use focus to bring it forward. close may leave an unsaved-changes dialog; inspect again.",
             ("anode window <windowId> <focus|raise|restore|maximize|minimize|close>", "act on one seat window"),
-            ("anode window <windowId> move --x N --y N --width N --height N", "move and resize it, in seat pixels")),
-        Row("Work in the seat", "element", "value= number= direction= amount= json", 3,
+            ("anode window <windowId> move --x N --y N --width N --height N", "move and resize it, in seat pixels"),
+            ("anode window <windowId> clipboard_checkpoint", "record sequence before copying the intended message"),
+            ("anode window <windowId> read_clipboard --after-sequence N [--max-chars N]",
+                "read a fresh copy only when its owner matches the selected window's process")),
+        Row("Work in the seat", "element", "value= number= direction= amount= max-chars# text-source= json", 3,
             "Use an action the control lists. --number uses a decimal point. --json prints the result as JSON. "
-            + "Never replay an action that timed out; inspect again.",
+            + "read_text accepts --max-chars (default 20000) and --text-source auto|name|value|document; it does not focus or copy. Never replay an action that timed out; inspect again.",
             ("anode element <snapshotId> <elementId> <action> [--value TEXT] [--number N] [--direction D] [--amount A]",
                 "act on a control from inspect; this uses up the snapshot"),
-            ("", "Actions: invoke, focus, toggle, select, expand, collapse, scroll_into_view, set_value with --value, "
+            ("", "Actions: read_text, invoke, focus, toggle, select, expand, collapse, scroll_into_view, set_value with --value, "
                 + "set_range with --number, and scroll with --direction up|down|left|right and optional --amount small|large.")),
 
         Row("Drive the seat", "click", "right middle double", 2,
@@ -1343,6 +1356,8 @@ internal static partial class Cli
             "waitMs" => "--wait", "executionTimeoutMs" => "--timeout", "maxChars" => "--max-chars",
             "automationId" => "--automation-id", "textContains" => "--text", "maxElements" => "--max-elements",
             "maxDepth" => "--max-depth", "maxTextChars" => "--max-text", "ttlSeconds" => "--ttl",
+            "maxNameChars" => "--max-name", "maxElementTextChars" => "--max-element-text", "textSource" => "--text-source",
+            "afterSequence" => "--after-sequence",
             "cancelJobs" => "--cancel-jobs", "waitSeconds" => "--wait", "durationMs" => "--ms", "timeoutSeconds" => "--timeout",
             "maxWidth" => "--width",
             var field => "--" + field

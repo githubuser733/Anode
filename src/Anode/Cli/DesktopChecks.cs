@@ -8,7 +8,7 @@ using Anode.Mcp;
 
 namespace Anode.Cli;
 
-internal static class DesktopChecks
+internal static partial class DesktopChecks
 {
     private static void Require(bool test, string message) { if (!test) throw new InvalidOperationException(message); }
     private static void Rejected(Action action)

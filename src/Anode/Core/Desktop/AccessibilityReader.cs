@@ -24,6 +24,9 @@ internal static class AccessibilityReader
         int maximum = request.Int("maxElements") ?? 200;
         int depthLimit = request.Int("maxDepth") ?? 8;
         int textBudget = request.Int("maxTextChars") ?? 6000;
+        int nameLimit = request.Int("maxNameChars") ?? 500;
+        int fieldLimit = request.Int("maxElementTextChars") ?? 3000;
+        int nameBudget = AccessibilityText.NameBudget;
         bool offscreen = request.Bool("includeOffscreen") ?? false;
         var elements = new JsonArray();
         var warnings = new JsonArray();
@@ -38,6 +41,7 @@ internal static class AccessibilityReader
         if (rootId is { Length: > 0 }) seen.Add(Key(rootId));
         queue.Enqueue((root, rootId, Array.Empty<int>(), null));
         bool truncated = false;
+        var truncationReasons = new HashSet<string>();
         int visited = 0;
         while (queue.Count > 0 && visited < maximum && watch.ElapsedMilliseconds < 4000)
         {
@@ -56,7 +60,7 @@ internal static class AccessibilityReader
                     continue;
                 }
                 if (runtimeId.Length > 0) key = Key(runtimeId);
-                node = Describe(current.Element, runtimeId, current.Path, current.Parent, ref textBudget);
+                node = Describe(current.Element, runtimeId, current.Path, current.Parent, nameLimit, fieldLimit, ref nameBudget, ref textBudget);
                 string? parent = current.Parent;
                 if (offscreen || node.Bool("offscreen") != true || current.Path.Length == 0)
                 {
@@ -64,10 +68,14 @@ internal static class AccessibilityReader
                     parent = node.Str("id");
                     elements.Add(node);
                 }
-                if (current.Path.Length >= depthLimit) { truncated = true; continue; }
                 int index = 0;
                 var siblings = new HashSet<string>();
                 var child = Walker.GetFirstChild(current.Element);
+                if (current.Path.Length >= depthLimit)
+                {
+                    if (child is not null) { truncated = true; truncationReasons.Add("maxDepth"); }
+                    continue;
+                }
                 while (child is not null && queue.Count + visited < maximum && watch.ElapsedMilliseconds < 4000)
                 {
                     int[]? id = RuntimeId(child);
@@ -80,7 +88,11 @@ internal static class AccessibilityReader
                     index++;
                     child = Walker.GetNextSibling(child);
                 }
-                if (child is not null) truncated = true;
+                if (child is not null)
+                {
+                    truncated = true;
+                    truncationReasons.Add(watch.ElapsedMilliseconds >= 4000 ? "timeLimit" : "maxElements");
+                }
             }
             catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException)
             {
@@ -90,10 +102,18 @@ internal static class AccessibilityReader
             }
         }
         truncated |= queue.Count > 0;
+        if (queue.Count > 0) truncationReasons.Add(watch.ElapsedMilliseconds >= 4000 ? "timeLimit" : "maxElements");
+        bool incomplete = elements.OfType<JsonObject>().Any(node => new[] { "nameInfo", "textInfo", "selectedTextInfo" }
+            .Any(field => node.Obj(field)?.Bool("complete") == false));
+        bool longText = elements.OfType<JsonObject>().Any(node => new[] { "nameInfo", "textInfo", "selectedTextInfo" }
+            .Any(field => node.Obj(field)?.Int("lengthAtLeast") >= AccessibilityText.LongTextThreshold));
         var result = new JsonObject
         {
             ["window"] = WindowAccess.Describe(target), ["elements"] = elements,
             ["truncated"] = truncated, ["warnings"] = warnings,
+            ["truncationReasons"] = new JsonArray(truncationReasons.Order().Select(value => (JsonNode)value).ToArray()),
+            ["textIncomplete"] = incomplete, ["longText"] = longText,
+            ["needsTextRecovery"] = incomplete || longText,
             ["observedAt"] = DateTime.UtcNow.ToString("o"), ["elapsedMs"] = watch.ElapsedMilliseconds
         };
         // Not a warning: nothing was hidden, and seat_wait's "missing" needs a tree without warnings.
@@ -112,7 +132,8 @@ internal static class AccessibilityReader
         static string Key(int[] id) => string.Join(".", id);
     }
 
-    private static JsonObject Describe(AutomationElement element, int[] runtimeId, int[] path, string? parent, ref int textBudget)
+    private static JsonObject Describe(AutomationElement element, int[] runtimeId, int[] path, string? parent,
+        int nameLimit, int fieldLimit, ref int nameBudget, ref int textBudget)
     {
         var cache = new CacheRequest { TreeScope = TreeScope.Element };
         foreach (var property in new[]
@@ -131,12 +152,13 @@ internal static class AccessibilityReader
             foreach (var pattern in Patterns)
                 if (supported.Contains(pattern.Pattern)) actions.AddRange(pattern.Actions);
         if (data.IsKeyboardFocusable && !password) actions.Add("focus");
+        if (!password) actions.Add("read_text");
         var bounds = data.BoundingRectangle;
         var node = new JsonObject
         {
             ["parent"] = parent, ["depth"] = path.Length,
             ["role"] = Role(data.ControlType),
-            ["name"] = Clip(data.Name, 500), ["automationId"] = Clip(data.AutomationId, 256),
+            ["automationId"] = Clip(data.AutomationId, 256),
             ["className"] = Clip(data.ClassName, 128), ["enabled"] = data.IsEnabled,
             ["offscreen"] = data.IsOffscreen, ["focused"] = data.HasKeyboardFocus, ["password"] = password,
             ["bounds"] = bounds.IsEmpty ? null : WindowAccess.RectangleJson(new Rectangle(
@@ -145,35 +167,49 @@ internal static class AccessibilityReader
             // Private references are retained by the host and removed from public results.
             ["path"] = new JsonArray(path.Select(value => (JsonNode)value).ToArray()),
             ["runtimeId"] = new JsonArray(runtimeId.Select(value => (JsonNode)value).ToArray()),
-            ["processId"] = data.ProcessId
+            ["processId"] = data.ProcessId, ["nameFingerprint"] = AccessibilityText.Fingerprint(data.Name)
         };
+        var name = AccessibilityText.Known(data.Name, Math.Min(nameLimit, nameBudget), nameBudget < nameLimit ? "nameBudget" : "maxNameChars");
+        name.Put(node, "name", "name");
+        nameBudget -= name.Text.Length;
         if (!password)
         {
-            string? text = null;
+            int limit = Math.Min(textBudget, fieldLimit);
+            string reason = textBudget < fieldLimit ? "maxTextChars" : "maxElementTextChars";
+            AccessibilityText? text = null;
+            string source = "value";
             if (element.TryGetCurrentPattern(ValuePattern.Pattern, out var value))
             {
                 var pattern = (ValuePattern)value;
                 node["readOnly"] = pattern.Current.IsReadOnly;
-                if (textBudget > 0) text = pattern.Current.Value;
+                text = limit > 0 ? AccessibilityText.Known(pattern.Current.Value, limit, reason) : AccessibilityText.NotRead(reason);
                 if (pattern.Current.IsReadOnly) actions.Remove("set_value");
             }
-            else if (textBudget > 0 && element.TryGetCurrentPattern(TextPattern.Pattern, out var document))
+            else if (element.TryGetCurrentPattern(TextPattern.Pattern, out var document))
             {
                 var pattern = (TextPattern)document;
-                // The client hands back null for a range or a selection the app didn't provide.
-                text = pattern.DocumentRange?.GetText(Math.Min(textBudget, 3000));
-                var selected = pattern.GetSelection()?.FirstOrDefault()?.GetText(Math.Min(textBudget, 1000));
-                if (!string.IsNullOrEmpty(selected))
+                source = "document";
+                text = AccessibilityText.Probe(count => pattern.DocumentRange?.GetText(count), limit, reason);
+                text.Put(node, "text", source);
+                textBudget -= text.Text.Length;
+                int selectedLimit = Math.Min(textBudget, Math.Min(fieldLimit, 1000));
+                if (selectedLimit > 0)
                 {
-                    node["selectedText"] = Clip(selected, textBudget);
-                    textBudget -= node.Str("selectedText")!.Length;
+                    var selectedRange = pattern.GetSelection()?.FirstOrDefault();
+                    if (selectedRange is not null)
+                    {
+                        var selected = AccessibilityText.Probe(selectedRange.GetText, selectedLimit,
+                            textBudget < Math.Min(fieldLimit, 1000) ? "maxTextChars" : "selectedTextLimit");
+                        selected.Put(node, "selectedText", "selection");
+                        textBudget -= selected.Text.Length;
+                    }
                 }
+                text = null; // Document text was already charged before selection text.
             }
-            if (!string.IsNullOrEmpty(text))
+            if (text is not null)
             {
-                string limited = Clip(text, Math.Min(textBudget, 3000));
-                node["text"] = limited;
-                textBudget -= limited.Length;
+                text.Put(node, "text", source);
+                textBudget -= text.Text.Length;
             }
         }
         if (!password && element.TryGetCurrentPattern(TogglePattern.Pattern, out var toggle))
@@ -219,19 +255,22 @@ internal static class AccessibilityReader
         if (!(element.GetRuntimeId() ?? Array.Empty<int>()).SequenceEqual(runtimeId)) throw Stale();
         var state = element.Current;
         VerifyElementSession(state.ProcessId);
-        if (state.ProcessId != reference.Int("processId") || Clip(state.Name, 500) != reference.Str("name")
+        bool sameName = reference.Str("nameFingerprint") is { } fingerprint
+            ? AccessibilityText.Fingerprint(state.Name) == fingerprint : Clip(state.Name, 500) == reference.Str("name");
+        if (state.ProcessId != reference.Int("processId") || !sameName
             || Role(state.ControlType) != reference.Str("role")
             || Clip(state.AutomationId, 256) != reference.Str("automationId")) throw Stale();
         if (state.IsPassword) throw new InvalidOperationException("Password controls require the user's direct interaction.");
-        if (!state.IsEnabled) throw new InvalidOperationException("The control is disabled. Inspect again.");
         WindowAccess.Verify(target);
         string action = request.Str("action") ?? throw new ArgumentException("An element action is required.");
+        if (!state.IsEnabled && action != "read_text") throw new InvalidOperationException("The control is disabled. Inspect again.");
         if (reference["actions"] is not JsonArray actions || !actions.Any(value => value?.GetValue<string>() == action))
             throw new InvalidOperationException("That action was not offered by the observed control. Inspect again.");
         T Pattern<T>(AutomationPattern id) where T : class => element.TryGetCurrentPattern(id, out var value)
             ? (T)value : throw Stale();
         switch (action)
         {
+            case "read_text": return ReadText(element, request);
             case "invoke": Pattern<InvokePattern>(InvokePattern.Pattern).Invoke(); break;
             case "focus": element.SetFocus(); break;
             case "set_value": return SetValue(Pattern<ValuePattern>(ValuePattern.Pattern), request.Str("value")!, state.ControlType == ControlType.ComboBox);
@@ -251,6 +290,34 @@ internal static class AccessibilityReader
             default: throw new ArgumentException("Unknown element action.");
         }
         return Performed(action);
+    }
+
+    private static JsonObject ReadText(AutomationElement element, JsonObject request)
+    {
+        int limit = request.Int("maxChars") ?? 20000;
+        string source = request.Str("textSource") ?? "auto";
+        AccessibilityText text;
+        if (source is "auto" or "value" && element.TryGetCurrentPattern(ValuePattern.Pattern, out var value))
+        {
+            source = "value";
+            text = AccessibilityText.Known(((ValuePattern)value).Current.Value, limit, "maxChars");
+        }
+        else if (source is "auto" or "document" && element.TryGetCurrentPattern(TextPattern.Pattern, out var document))
+        {
+            source = "document";
+            text = AccessibilityText.Probe(count => ((TextPattern)document).DocumentRange?.GetText(count), limit, "maxChars");
+        }
+        else if (source is "auto" or "name")
+        {
+            source = "name";
+            text = AccessibilityText.Known(element.Current.Name, limit, "maxChars");
+        }
+        else throw new InvalidOperationException("The control does not expose the requested text source. Inspect again; use a screenshot to locate an expand/copy action if needed.");
+        var result = Performed("read_text");
+        text.Put(result, "text", source);
+        result["textIncomplete"] = !text.Complete;
+        result["note"] = "Read accessible text without focusing, selecting or copying. Observation consumed. Completeness refers to the app's UIA text, not hidden chat history.";
+        return result;
     }
 
     private static JsonObject Performed(string action) =>

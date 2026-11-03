@@ -15,6 +15,9 @@ internal static class DesktopPresentation
         if (node.Bool("enabled") == false) parts.Add("disabled");
         if (node.Bool("offscreen") == true) parts.Add("offscreen");
         if (node.Bool("readOnly") == true) parts.Add("read-only");
+        foreach (string field in new[] { "name", "text", "selectedText" })
+            if (node.Obj(field + "Info") is { } info && info.Bool("complete") == false)
+                parts.Add($"{field} incomplete: {info.Int("returnedLength")}/{info.Int("length")?.ToString() ?? "?"} chars ({info.Str("reason")})");
         if (node.Str("toggleState") is { } toggle) parts.Add("toggle: " + toggle);
         if (node.Bool("selected") is bool selected) parts.Add(selected ? "selected" : "not selected");
         if (node.Str("expandState") is { } expanded) parts.Add(expanded);
@@ -62,6 +65,9 @@ internal static class DesktopPresentation
                 if (node.Str("selectedText") is { Length: > 0 } selected) text.AppendLine("    selected: " + Line(selected));
             }
             if (result.Bool("truncated") == true) text.AppendLine("Tree truncated; adjust maxElements/maxDepth or inspect a smaller window.");
+            if (result["truncationReasons"] is JsonArray { Count: > 0 } reasons) text.AppendLine("Tree limits: " + string.Join(", ", reasons));
+            if (result.Bool("textIncomplete") == true) text.AppendLine("Some text is incomplete. Increase text limits or use read_text on a fresh element; tree truncation is reported separately.");
+            if (result.Bool("longText") == true) text.AppendLine("Long text detected (at least 3000 UTF-16 code units).");
             if (result.Int("skippedRepeats") is int repeats)
                 text.AppendLine($"Skipped {repeats} control(s) the app listed again elsewhere in this window's tree; each is shown once.");
             if (result.Str("screenshotError") is { } error) text.AppendLine(Line(error));
@@ -71,6 +77,9 @@ internal static class DesktopPresentation
         else
         {
             text.Append(result.Str("note") ?? "ok");
+            if (result.Str("text") is { } content) text.AppendLine().Append(string.Concat(content.Select(c => char.IsControl(c) && c is not '\r' and not '\n' and not '\t' ? ' ' : c)));
+            if (result.Str("sequence") is { } sequence) text.AppendLine().Append("Clipboard sequence: " + sequence);
+            if (result.Obj("textInfo")?.Bool("complete") == false) text.AppendLine().Append("Text incomplete: " + result.Obj("textInfo")?.Str("reason"));
             if (result.Str("value") is { } value) text.Append(" It now reads: " + (value.Length == 0 ? "(empty)" : "\"" + Line(value) + "\""));
         }
         return text.ToString().TrimEnd();

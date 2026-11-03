@@ -264,6 +264,7 @@ internal static class SelfTest
             return $"readable; feature {(enabled ? "enabled" : "disabled")}, current child session {(existing?.ToString() ?? "none")}";
         });
         Check(results, "operation timeline", TimelineChecks.ForSelfTest);
+        Check(results, "accessible text completeness", DesktopChecks.TextCompleteness);
         return results;
     }
 

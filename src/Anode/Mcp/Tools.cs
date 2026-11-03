@@ -128,32 +128,42 @@ internal static class Tools
                 ("maxElements", "integer", "Maximum controls to visit, 1-500. Default 200.", false),
                 ("maxDepth", "integer", "Maximum tree depth, 0-20. Default 8.", false),
                 ("maxTextChars", "integer", "Total document/value text budget, 0-20000. Default 6000.", false),
+                ("maxNameChars", "integer", "Per-control name cap, 1-20000. Default 500; all names share a 100000-character budget.", false),
+                ("maxElementTextChars", "integer", "Per-control document/value text cap, 1-20000. Default 3000; maxTextChars still applies.", false),
+                ("screenshotOnTextIssue", "boolean", "Request an image only when text is incomplete or at least 3000 characters; set includeScreenshot=false for the text-first path.", false),
                 ("includeOffscreen", "boolean", "Include controls outside the visible viewport. Default false.", false))),
 
         new("seat_window", "Anode: focus, move or close a window", "desktop.window", false, Effect.Action,
             "Focus, raise, restore, maximize, minimize, move or request closing one verified seat window. Raise tries to bring it forward without requesting keyboard focus; when Windows keeps it behind another window, it reports raised: false and coveredBy with that window's windowId; focus then brings it forward with keyboard focus. An always-on-top window still over it is named in topmostAbove. Never focuses the parent desktop. "
-            + "Move requires x, y, width and height in seat pixels. Inspect again to confirm; close may display an unsaved-changes dialog.",
+            + "Move requires x, y, width and height in seat pixels. Inspect again to confirm; close may display an unsaved-changes dialog. "
+            + "For text copy recovery: clipboard_checkpoint records a sequence without reading contents; after locating and copying the intended message, read_clipboard requires afterSequence and verifies a changed clipboard owned by this window's process. It never copies or writes the clipboard itself.",
             Schema(("windowId", "string", "Window ID from seat_windows.", true),
-                ("action", "string", "focus, raise, restore, maximize, minimize, close, or move.", true),
+                ("action", "string", "focus, raise, restore, maximize, minimize, close, move, clipboard_checkpoint or read_clipboard.", true),
+                ("afterSequence", "string", "Required for read_clipboard: sequence from clipboard_checkpoint before the intended copy.", false),
+                ("maxChars", "integer", "Text cap for read_clipboard, 1-20000. Default 20000.", false),
                 ("x", "integer", "New left position for move.", false), ("y", "integer", "New top position for move.", false),
                 ("width", "integer", "New width for move, 160-8192.", false), ("height", "integer", "New height for move, 100-8192.", false))
-                .OneOf("action", "focus", "raise", "restore", "maximize", "minimize", "close", "move")
+                .OneOf("action", "focus", "raise", "restore", "maximize", "minimize", "close", "move", "clipboard_checkpoint", "read_clipboard")
                 .Bounded("x", -8192, 8192).Bounded("y", -8192, 8192)),
 
         new("seat_element", "Anode: act on an accessible control", "desktop.element", false, Effect.Action,
             "Act on one control from a fresh seat_observe result. Use only an action listed on that control. "
-            + "Supports invoke, focus, set_value, toggle, select, expand, collapse, scroll_into_view, scroll and set_range. "
+            + "Supports read_text, invoke, focus, set_value, toggle, select, expand, collapse, scroll_into_view, scroll and set_range. "
+            + "read_text rereads one control with a separate text cap without focusing or copying; textInfo reports completeness. "
             + "Verifies the window process and control identity again before acting. Password controls are refused. "
             + "set_value reads the control back and fails if it still shows its old value; Chrome's drop-down lists ignore it, so expand one and select the option. "
             + "The observation is consumed even if the app times out. Never blindly replay a timed-out action; observe again.",
             Schema(("snapshotId", "string", "Observation ID returned by seat_observe.", true),
                 ("elementId", "string", "Control ID from that observation, for example e7.", true),
                 ("action", "string", "One action listed on the observed control.", true),
+                ("maxChars", "integer", "Text cap for read_text, 1-20000. Default 20000.", false),
+                ("textSource", "string", "read_text source: auto (value, document, then name), name, value or document.", false),
                 ("value", "string", "Replacement text for set_value; empty clears the field. Up to 16000 characters.", false),
                 ("number", "number", "Numeric value for set_range; must be within the control's allowed range.", false),
                 ("direction", "string", "up, down, left or right for scroll.", false),
                 ("amount", "string", "small (default) or large for scroll.", false))
-                .OneOf("action", "invoke", "focus", "set_value", "toggle", "select", "expand", "collapse", "scroll_into_view", "scroll", "set_range")
+                .OneOf("action", "read_text", "invoke", "focus", "set_value", "toggle", "select", "expand", "collapse", "scroll_into_view", "scroll", "set_range")
+                .OneOf("textSource", "auto", "name", "value", "document")
                 .OneOf("direction", "up", "down", "left", "right")
                 .OneOf("amount", "small", "large")),
 
@@ -545,12 +555,19 @@ internal static class Tools
         if (name == "seat_window")
         {
             string action = arguments["action"]!.GetValue<string>();
+            if (action == "read_clipboard")
+            {
+                if (!uint.TryParse(arguments.Str("afterSequence"), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))
+                    return "read_clipboard requires afterSequence from clipboard_checkpoint (an unsigned 32-bit decimal string).";
+            }
+            else if (Has("afterSequence") || Has("maxChars")) return "Only read_clipboard accepts afterSequence/maxChars.";
             foreach (string key in new[] { "x", "y", "width", "height" })
                 if (Has(key) != (action == "move")) return "Move requires x, y, width and height; other window actions take no geometry.";
         }
         if (name == "seat_element")
         {
             string action = arguments["action"]!.GetValue<string>();
+            if (action != "read_text" && (Has("maxChars") || Has("textSource"))) return "Only read_text accepts maxChars/textSource.";
             if (Has("value") != (action == "set_value")) return "Only set_value requires value.";
             if (Has("number") != (action == "set_range")) return "Only set_range requires number.";
             if (Has("direction") != (action == "scroll") || Has("amount") && action != "scroll") return "Only scroll takes direction and amount; direction is required.";
@@ -662,6 +679,7 @@ internal static class Tools
                 "slot" => (0, 3), "quality" => (1, 100), "maxWidth" => (1, 8192), "ttlSeconds" => (10, 600), "waitSeconds" => (0, 300),
                 "waitMs" => (0, 10000), "executionTimeoutMs" => (100, 1800000), "maxChars" => (1, 20000),
                 "maxElements" => (1, 500), "maxDepth" => (0, 20), "maxTextChars" => (0, 20000),
+                "maxNameChars" or "maxElementTextChars" => (1, 20000),
                 "width" => (160, 8192), "height" => (100, 8192),
                 "count" => (1, 2), "holdMs" or "ms" => (0, MaxHoldMs), "perCharMs" => (0, 1000),
                 "appId" or "pid" => (1, int.MaxValue), _ => null
