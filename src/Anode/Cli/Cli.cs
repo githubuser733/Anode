@@ -78,6 +78,8 @@ internal static partial class Cli
                 return TimelineChecks.Run(rest);
             case "__text-check":
                 return TextReadingChecks.Run();
+            case "__chat-read":
+                return ChatTextReader.Run(rest);
             case "__log-probe":
                 return DiagnosticsChecks.LogProbe(rest);
             case "__cursor-probe":

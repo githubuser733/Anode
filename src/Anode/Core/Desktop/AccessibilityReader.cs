@@ -60,7 +60,7 @@ internal static class AccessibilityReader
                     continue;
                 }
                 if (runtimeId.Length > 0) key = Key(runtimeId);
-                node = Describe(current.Element, runtimeId, current.Path, current.Parent, nameLimit, fieldLimit, ref nameBudget, ref textBudget);
+                node = Describe(current.Element, runtimeId, current.Path, current.Parent, target.Pid, nameLimit, fieldLimit, ref nameBudget, ref textBudget);
                 string? parent = current.Parent;
                 if (offscreen || node.Bool("offscreen") != true || current.Path.Length == 0)
                 {
@@ -133,7 +133,7 @@ internal static class AccessibilityReader
     }
 
     private static JsonObject Describe(AutomationElement element, int[] runtimeId, int[] path, string? parent,
-        int nameLimit, int fieldLimit, ref int nameBudget, ref int textBudget)
+        int rootPid, int nameLimit, int fieldLimit, ref int nameBudget, ref int textBudget)
     {
         var cache = new CacheRequest { TreeScope = TreeScope.Element };
         foreach (var property in new[]
@@ -144,7 +144,9 @@ internal static class AccessibilityReader
             AutomationElement.IsPasswordProperty, AutomationElement.BoundingRectangleProperty, AutomationElement.ProcessIdProperty
         }) cache.Add(property);
         var data = element.GetUpdatedCache(cache).Cached;
-        VerifyElementSession(data.ProcessId);
+        // The root's PID/session/start time is verified before and after traversal. Reopening that same
+        // process for every message dominated live reads. Embedded cross-process controls still get checked.
+        if (data.ProcessId != rootPid) VerifyElementSession(data.ProcessId);
         bool password = data.IsPassword;
         var supported = element.GetSupportedPatterns();
         var actions = new List<string>();

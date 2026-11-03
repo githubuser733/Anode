@@ -9,6 +9,39 @@ namespace Anode.Cli;
 
 internal static partial class DesktopChecks
 {
+    internal static string ScopedChatRead()
+    {
+        Hosted(new LoopWindow(messages: true), "Anode scoped chat check", target =>
+        {
+            var full = ChatTextReader.Read(target, "Messages", 100, 20000);
+            var nodes = full["nodes"]!.AsArray();
+            Require(nodes.Count == 2 && full.Bool("truncated") == false && nodes[0]!["text"]!.ToString().Length == 7505,
+                "Scoped read failed to recover the full long message.");
+            var capped = ChatTextReader.Read(target, "Messages", 1, 64);
+            Require(capped.Bool("truncated") == true && capped.Str("truncationReason") == "maxElements"
+                && capped["nodes"]![0]!["textInfo"]!["complete"]!.GetValue<bool>() == false,
+                "Scoped read hid its node/field limits.");
+            try { ChatTextReader.Read(target, "Messages", 1, 0); throw new Exception("Invalid text limit was accepted."); }
+            catch (ArgumentException) { }
+            try { ChatTextReader.Read(target, "Messages", 1, 64, 0); throw new Exception("Invalid time budget was accepted."); }
+            catch (ArgumentException) { }
+            return "ok";
+        });
+        Hosted(new LoopWindow(messages: true, secretMessage: true), "Anode scoped password check", target =>
+        {
+            var result = ChatTextReader.Read(target, "Messages", 100, 20000);
+            Require(result["nodes"]!.AsArray().Count == 1 && !result.ToJsonString().Contains(new string('x', 100), StringComparison.Ordinal),
+                "A protected message was exported by the scoped reader.");
+            return "ok";
+        });
+        Hosted(new AppBarWindow(), "Anode missing list check", target =>
+        {
+            try { ChatTextReader.Read(target, "Missing", 100, 20000); throw new Exception("A missing list was reported as an empty history."); }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("The selected message list", StringComparison.Ordinal)) { }
+            return "ok";
+        });
+        return "scoped message selection, complete long names, node/field limits, password omission and missing-list refusal passed";
+    }
     internal static string ClipboardRecovery()
     {
         int reads = 0;
@@ -162,6 +195,7 @@ internal static class TextReadingChecks
             Console.WriteLine(DesktopChecks.TextCompleteness());
             Console.WriteLine(DesktopChecks.TextPipelineAsync().GetAwaiter().GetResult());
             Console.WriteLine(DesktopChecks.ClipboardRecovery());
+            Console.WriteLine(DesktopChecks.ScopedChatRead());
             Console.WriteLine(CliChecks.HelpRouting());
             Console.WriteLine(CliChecks.Arguments());
             Console.WriteLine(CliChecks.HelpText());

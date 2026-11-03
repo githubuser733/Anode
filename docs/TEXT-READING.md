@@ -90,6 +90,43 @@ The sequence and owner checks follow Microsoft's
 and [Clipboard.GetText](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.clipboard.gettext?view=windowsdesktop-10.0)
 contracts.
 
+## Scope reads to a message list
+
+Whole-window inspection can spend its traversal budget on toolbars before it reaches
+messages. An additional read-only worker runs through the existing `exec` interface:
+
+```text
+anode exec --timeout 30000 --wait 1000 --json -- <reader.exe> --channel main __chat-read --pid <pid> --window-title <title> --list-name <message-list-name> --max-elements 100 --max-chars 20000 --budget-ms 8000
+```
+
+`<reader.exe>` must be a verified Anode build containing `__chat-read`. This worker can
+run alongside the existing host without restarting its Windows session. Read job output
+with `anode job` and its cursor when the first call returns before completion.
+`scripts/read-chat-text.ps1` is an optional wrapper to invoke through `exec`; pass the
+worker executable as `-AnodeExecutable` plus `-ProcessId`, `-WindowTitle` and `-ListName`.
+Do not run either reader on the parent desktop: both refuse it.
+
+The scoped traversal budget defaults to 4000 ms and accepts 1–20000 ms through
+`--budget-ms` / `-BudgetMs`. It is checked between provider calls; the enclosing exec job
+enforces the hard deadline. Provider load affects timing, so callers must check `truncated`
+and choose a budget/job timeout that fits their task. A larger budget is not a low-latency guarantee.
+
+The worker verifies the session with the existing daemon, selects one native window by
+PID/title, and searches for a named List using Anode's .NET UIA client. It reads direct
+children's names with the same completeness metadata and a 100000-character total budget.
+`truncated` still means the list was not exhausted within the node/time budget. This is
+the exposed/virtualized list, not a guarantee of all stored chat history. The returned
+indexes are diagnostic only; control actions still need a fresh normal observation.
+
+The root process's session/start identity is checked before and after traversal, so its
+identity is reused within one read. Embedded controls from other processes still receive
+their own session checks. `processCheckMs` reports that validation cost for scoped reads.
+No focus, screenshot, clipboard operation or LLM call is performed by the worker.
+
+During live checks on this machine, Windows PowerShell's legacy UIA client saw a shallower
+WeChat tree than Anode's .NET client. The wrapper therefore delegates extraction to Anode;
+its behavior must be checked again if the installed app/runtime changes.
+
 ## Verification and activation
 
 ```powershell
@@ -104,5 +141,7 @@ they do not read/write the user's clipboard contents, send input or start a live
 
 The existing full `selftest --quick` also deletes temporary fixture files. It was not run
 under the user's no-deletion rule; focused retained-fixture checks cover this change.
-Real WeChat reading, real copy recovery and screenshot triggering require a running seat
-with the candidate host. New clients alone do not add these operations to an older daemon.
+Real WeChat reading, real copy recovery and screenshot triggering require a running seat.
+New `seat_observe` / `seat_element` / `seat_window` options require a candidate host that
+supports them. The scoped `__chat-read` worker uses existing exec jobs and does not require
+replacing an already-running host.

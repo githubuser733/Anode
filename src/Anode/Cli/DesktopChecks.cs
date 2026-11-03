@@ -390,9 +390,11 @@ internal static partial class DesktopChecks
     private sealed class LoopWindow : HiddenWindow, IRawElementProviderFragmentRoot
     {
         public readonly LoopNode A, B, C, D, B2, E;
-        public LoopWindow()
+        public LoopWindow(bool messages = false, bool secretMessage = false)
         {
-            A = new(this, 1, "A"); B = new(this, 2, "B"); C = new(this, 3, "C"); D = new(this, 4, "D");
+            A = new(this, 1, messages ? "Messages" : "A", messages ? ControlType.List : null);
+            B = new(this, 2, messages ? new string('x', 7500) + "😀END" : "B", password: secretMessage);
+            C = new(this, 3, "C"); D = new(this, 4, "D");
             B2 = new(this, 2, "B"); E = new(this, 5, "E");
             (A.Parent, A.Next, A.FirstChild, A.LastChild) = (this, D, B, C);
             (D.Parent, D.Previous, D.FirstChild, D.LastChild) = (this, A, B2, E);
@@ -414,15 +416,16 @@ internal static partial class DesktopChecks
         public IRawElementProviderFragment? GetFocus() => null;
     }
 
-    private sealed class LoopNode(LoopWindow window, int id, string name) : IRawElementProviderFragment, IInvokeProvider
+    private sealed class LoopNode(LoopWindow window, int id, string name, ControlType? type = null, bool password = false) : IRawElementProviderFragment, IInvokeProvider
     {
         public IRawElementProviderFragment? Parent, FirstChild, LastChild, Next, Previous;
         public int Invoked;
         public ProviderOptions ProviderOptions => ProviderOptions.ServerSideProvider;
         public object? GetPatternProvider(int patternId) => patternId == InvokePattern.Pattern.Id ? this : null;
         public object? GetPropertyValue(int propertyId) =>
-            propertyId == AutomationElement.ControlTypeProperty.Id ? ControlType.Button.Id
+            propertyId == AutomationElement.ControlTypeProperty.Id ? (type ?? ControlType.Button).Id
             : propertyId == AutomationElement.NameProperty.Id ? name
+            : propertyId == AutomationElement.IsPasswordProperty.Id ? password
             : propertyId == AutomationElement.IsEnabledProperty.Id ? true : null;
         public IRawElementProviderSimple? HostRawElementProvider => null;
         public System.Windows.Rect BoundingRectangle => System.Windows.Rect.Empty;
