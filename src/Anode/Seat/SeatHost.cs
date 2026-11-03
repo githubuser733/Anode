@@ -43,6 +43,8 @@ internal static class SeatHost
         new SeatEmulators(ChildSession.CurrentSessionId(), Path.Combine(Env.StateDirectory, "android")));
     private static readonly DesktopLease Lease = new(EndLease, Jobs.CancelOwned, record: Log.Info);
     private static readonly CancellationTokenSource DesktopStopping = new();
+    private static readonly SemaphoreSlim TimelineCaptureGate = new(1, 1);
+    private static long _lastTimelineCapture;
     /// <summary>The user's own session, as the parent daemon reported it; Steam belongs there.</summary>
     private static uint? _desktopSession;
 
@@ -146,6 +148,9 @@ internal static class SeatHost
 
     private static Task<JsonObject> HandleAsync(JsonObject request)
     {
+        // Private journal capture: read-only, fixed size/quality, inside this already verified child session.
+        // It must work during human control, without changing leases or injecting input.
+        if (request.Str("op") == "timeline.capture") return CaptureTimelineAsync();
         // Emergency shutdown remains independent of desktop ownership and the interaction queue.
         if (request.Str("op") == "shutdown")
         {
@@ -153,6 +158,27 @@ internal static class SeatHost
             return Task.FromResult(Dispatch("shutdown", request));
         }
         return Lease.HandleAsync(request, HandleOwnedAsync, DesktopStopping.Token);
+    }
+
+    private static async Task<JsonObject> CaptureTimelineAsync()
+    {
+        if (!await TimelineCaptureGate.WaitAsync(0).ConfigureAwait(false)) return JsonLine.Fail("Activity capture busy.");
+        try
+        {
+            long now = Environment.TickCount64;
+            if (now - _lastTimelineCapture < 1000) return JsonLine.Fail("Activity capture rate limited.");
+            _lastTimelineCapture = now;
+            var shot = ScreenCapture.Capture(1920, "jpeg", 65);
+            return JsonLine.Ok(new JsonObject { ["data"] = Convert.ToBase64String(shot.Bytes), ["capturedAt"] = DateTimeOffset.UtcNow.ToString("o") });
+        }
+        catch { return JsonLine.Fail("Activity capture unavailable in the child session."); }
+        finally { TimelineCaptureGate.Release(); }
+    }
+
+    internal static Task<JsonObject> ProbeTimelineCaptureAsync()
+    {
+        VerifyCurrentSession();
+        return CaptureTimelineAsync();
     }
 
     private static async Task<JsonObject> HandleOwnedAsync(JsonObject request, CancellationToken cancel)

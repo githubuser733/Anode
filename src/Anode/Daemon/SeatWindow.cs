@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Anode.Core.Native;
 using Anode.Core.Util;
+using Anode.Core.Timeline;
 
 namespace Anode.Daemon;
 
@@ -24,6 +25,10 @@ internal sealed class SeatWindow : Form
     private readonly ToolStripButton _reconnectButton = new();
     private readonly ToolStripButton _signInButton = new();
     private readonly ToolStripButton _detailsButton = new();
+    private readonly ToolStripButton _timelineButton = new();
+    private readonly TimelinePanel _timelinePanel = new() { Visible = false };
+    private OperationTimeline? _timeline;
+    private HumanInputRecorder? _humanInput;
     private readonly ToolStripLabel _headline = new();
     private readonly StatusStrip _statusBar = new();
     private readonly ToolStripStatusLabel _statusLabel = new();
@@ -119,6 +124,7 @@ internal sealed class SeatWindow : Form
         // In front of the viewer and filling the same space until the seat picture is live.
         Controls.Add(_placeholder);
         Controls.Add(_seatArea);
+        Controls.Add(_timelinePanel);
         Controls.Add(_detailsPanel);
         Controls.Add(_toolbar);
         Controls.Add(_statusBar);
@@ -126,6 +132,18 @@ internal sealed class SeatWindow : Form
 
         ViewOnly = options.StartViewOnly;
         KeyDown += OnKeyDown;
+    }
+
+    internal void AttachTimeline(OperationTimeline timeline, bool recordHuman = true, TimelineCaptureScheduler? capture = null)
+    {
+        _timeline = timeline;
+        _timelinePanel.Bind(timeline, capture);
+        _timelineButton.Checked = true;
+        _humanInput?.Dispose();
+        _humanInput = recordHuman ? new HumanInputRecorder(Viewer,
+            () => !_viewOnly && Visible && Viewer.LoginCompleted && HumanInputRecorder.ViewerIsForeground(Viewer),
+            () => _fitSeat ? _seatSize : Viewer.ClientSize, timeline, nativeThreads: true) : null;
+        PlaceSeat();
     }
 
     /// <summary>
@@ -190,6 +208,9 @@ internal sealed class SeatWindow : Form
         get => _viewOnly;
         set
         {
+            bool changed = _viewOnly != value;
+            _humanInput?.Flush();
+            if (changed && value) _humanInput?.ReportCoverage();
             _viewOnly = value;
             Viewer.SetInputEnabled(!value);
             _controlButton.Text = value ? "Take control" : "Release control";
@@ -202,6 +223,7 @@ internal sealed class SeatWindow : Form
                 : "Stop your mouse and keyboard from reaching the seat.";
             _modeLabel.ToolTipText = value ? "Your clicks and keystrokes do not reach the seat." : _controlButton.ToolTipText;
             RefreshDetails();
+            if (changed) _timeline?.Control(!value);
         }
     }
 
@@ -262,6 +284,18 @@ internal sealed class SeatWindow : Form
             if (_detailsPanel.Visible) _details.Focus();
         };
 
+        _timelineButton.Name = "ShowTimeline";
+        _timelineButton.Text = "Timeline";
+        _timelineButton.ToolTipText = "Agent and human activity, results and available screenshots.";
+        _timelineButton.CheckOnClick = true;
+        ViewerTheme.Decorate(_timelineButton, new(Glyph: ViewerTheme.Glyphs.More));
+        _timelineButton.CheckedChanged += (_, _) =>
+        {
+            _timelinePanel.Visible = _timelineButton.Checked;
+            MinimumSize = new Size(LogicalToDeviceUnits(_timelineButton.Checked ? 900 : 560), MinimumSize.Height);
+            PlaceSeat();
+        };
+
         _headline.Alignment = ToolStripItemAlignment.Right;
         _headline.ForeColor = ViewerTheme.Muted;
         _headline.Text = "Starting";
@@ -279,6 +313,7 @@ internal sealed class SeatWindow : Form
             _reconnectButton,
             _signInButton,
             _detailsButton,
+            _timelineButton,
             _headline
         });
         foreach (var button in _toolbar.Items.OfType<ToolStripButton>())
@@ -400,6 +435,7 @@ internal sealed class SeatWindow : Form
         // Details continue the header's surface instead of opening a differently colored box.
         _detailsPanel.BackColor = _details.BackColor = SystemInformation.HighContrast ? SystemColors.Window : ViewerTheme.Chrome;
         _details.ForeColor = SystemInformation.HighContrast ? SystemColors.WindowText : ViewerTheme.Text;
+        _timelinePanel.SetColors(ViewerTheme.Chrome, ViewerTheme.Text, ViewerTheme.Muted);
         if (IsHandleCreated) ViewerTheme.ApplyFrame(Handle);
     }
 
@@ -685,6 +721,8 @@ internal sealed class SeatWindow : Form
     {
         if (disposing)
         {
+            _humanInput?.Dispose();
+            _humanInput = null;
             _tray.Visible = false;
             var menu = _tray.ContextMenuStrip;
             _tray.Dispose();

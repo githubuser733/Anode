@@ -74,6 +74,8 @@ internal static partial class Cli
                 return Core.Steam.SteamReadiness.Probe();
             case "__viewer-preview":
                 return ViewerPreview.Run(rest);
+            case "__timeline-check":
+                return TimelineChecks.Run(rest);
             case "__log-probe":
                 return DiagnosticsChecks.LogProbe(rest);
             case "__cursor-probe":

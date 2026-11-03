@@ -263,6 +263,7 @@ internal static class SelfTest
             uint? existing = ChildSession.TryGetId();
             return $"readable; feature {(enabled ? "enabled" : "disabled")}, current child session {(existing?.ToString() ?? "none")}";
         });
+        Check(results, "operation timeline", TimelineChecks.ForSelfTest);
         return results;
     }
 

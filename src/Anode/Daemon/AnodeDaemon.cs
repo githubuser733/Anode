@@ -5,6 +5,7 @@ using Anode.Core.Display;
 using Anode.Core.Launch;
 using Anode.Core.Session;
 using Anode.Core.Util;
+using Anode.Core.Timeline;
 
 namespace Anode.Daemon;
 
@@ -42,6 +43,8 @@ internal sealed class AnodeDaemon : IDisposable
     private volatile bool _messageLoopEnded;
 
     private SeatWindow? _window;
+    private OperationTimeline? _timeline;
+    private TimelineCaptureScheduler? _timelineCapture;
     private JsonPipeServer? _control;
     private System.Threading.Timer? _deskWatch;
     private int _watchingDesk;
@@ -61,9 +64,10 @@ internal sealed class AnodeDaemon : IDisposable
     internal AnodeDaemon(SeatOptions options, Func<uint?>? findChild = null, Func<string?>? blockingSummary = null,
         Func<Task>? startHost = null, Func<bool, uint?>? logoff = null, Action? disconnectViewer = null,
         Func<DisplayMode, bool, CancellationToken, Task>? changeDisplay = null, Action? endMessageLoop = null,
-        Action<int>? exitProcess = null, TimeSpan? quitGrace = null)
+        Action<int>? exitProcess = null, TimeSpan? quitGrace = null, OperationTimeline? timeline = null)
     {
         _options = options;
+        _timeline = timeline;
         _promptForCredentials = options.PromptForCredentials;
         _findChild = findChild ?? ChildSession.TryGetId;
         _blockingSummary = blockingSummary ?? Preconditions.BlockingSummary;
@@ -127,7 +131,14 @@ internal sealed class AnodeDaemon : IDisposable
         // not machine security or the child-session authentication settings.
         try { if (_options.ConfigureBackgroundRendering) BackgroundRendering.Configure(); }
         catch (Exception ex) { Log.Warn("Background rendering could not be configured: " + ex.Message); }
+        try { _timeline ??= new OperationTimeline(Path.Combine(Env.StateDirectory, "timeline")); }
+        catch (Exception ex) { Log.Warn("Timeline could not be opened: " + ex.Message); }
         _window = new SeatWindow(_options);
+        if (_timeline is not null)
+        {
+            _timelineCapture = new TimelineCaptureScheduler(_timeline, CaptureActivityFrameAsync);
+            _window.AttachTimeline(_timeline, capture: _timelineCapture);
+        }
         _window.StopSeatRequested += () => _ = StopSeatAsync("stopped from the viewer");
         _window.ReconnectRequested += () => _ = ReconnectAsync();
         _window.SignInRequested += () => _ = ReconnectAsync(promptForCredentials: true);
@@ -764,7 +775,21 @@ internal sealed class AnodeDaemon : IDisposable
 
     // ------------------------------------------------------------- control pipe
 
-    internal async Task<JsonObject> HandleControlAsync(JsonObject request)
+    internal Task<JsonObject> HandleControlAsync(JsonObject request) => _timeline is { } timeline
+        ? timeline.TrackAsync(request, () => HandleControlCoreAsync(request)) : HandleControlCoreAsync(request);
+
+    private async Task<TimelineFrame?> CaptureActivityFrameAsync(CancellationToken cancel)
+    {
+        if (!_hostReady || _stopRequested || _sessionId is null) return null;
+        // A separate read-only host connection never waits on input, acquires a lease or captures this parent desktop.
+        using var pipe = await JsonPipeClient.TryConnectAsync(Env.SeatPipe, 500, cancel).ConfigureAwait(false);
+        if (pipe is null) return null;
+        var response = await pipe.RequestAsync("timeline.capture", new JsonObject(), 4000, cancel).ConfigureAwait(false);
+        if (response.Bool("ok") != true || response.Obj("result") is not { } shot || shot.Str("data") is not { Length: > 0 and < 3000000 } data) return null;
+        return new TimelineFrame(Convert.FromBase64String(data), DateTimeOffset.TryParse(shot.Str("capturedAt"), out var at) ? at : DateTimeOffset.UtcNow);
+    }
+
+    private async Task<JsonObject> HandleControlCoreAsync(JsonObject request)
     {
         string op = request.Str("op") ?? string.Empty;
         int stopVersion = Volatile.Read(ref _stopVersion);
@@ -1207,6 +1232,8 @@ internal sealed class AnodeDaemon : IDisposable
         DisposeSeatClient();
         _control?.Dispose();
         _window?.Dispose();
+        _timelineCapture?.Dispose();
+        _timeline?.Dispose();
         // In-flight handlers may still be unwinding and releasing the semaphore.
     }
 }
