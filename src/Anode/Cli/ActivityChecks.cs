@@ -207,6 +207,7 @@ internal static class ActivityChecks
         var captureSelector = panel.Controls.OfType<ToolStrip>().SelectMany(strip => strip.Items.OfType<ToolStripComboBox>()).Single();
         Check(captureSelector.ForeColor == SystemColors.WindowText && captureSelector.BackColor == SystemColors.Window, "Capture mode selector lost readable system text colors.");
         _checks += ActivitySettingsChecks.Ui(root);
+        _checks += ActivityResponsivenessChecks.Run(root);
         return _checks - before;
     }
 

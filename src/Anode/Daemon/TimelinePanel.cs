@@ -18,15 +18,20 @@ internal sealed class TimelinePanel : UserControl
     private readonly FlowLayoutPanel _legend = new() { Dock = DockStyle.Top, Height = 25, WrapContents = false, AccessibleName = "操作级别颜色说明" };
     private readonly Label _health = new() { Dock = DockStyle.Top, Height = 30, AutoEllipsis = true, Name = "ActivityHealth", Padding = new Padding(4, 5, 0, 0) };
     private readonly System.Windows.Forms.Timer _searchTimer = new() { Interval = 180 };
+    private readonly System.Windows.Forms.Timer _refreshTimer = new() { Interval = 33 };
     private readonly ListView _rows = new() { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false };
+    private readonly Dictionary<string, ListViewItem> _rowById = new(StringComparer.Ordinal);
     private readonly TextBox _detail = new() { Dock = DockStyle.Bottom, Multiline = true, ReadOnly = true, Height = 64, BorderStyle = BorderStyle.None };
     private readonly PictureBox _preview = new() { Dock = DockStyle.Bottom, Height = 88, SizeMode = PictureBoxSizeMode.Zoom, Visible = false, Cursor = Cursors.Hand, AccessibleName = "点击放大截图" };
     private readonly Label _footer = new() { Dock = DockStyle.Bottom, Height = 42, AutoEllipsis = true };
     private OperationTimeline? _timeline;
     private TimelineCaptureScheduler? _capture;
-    private string? _previewPath;
+    private string? _previewKey;
+    private OperationTimeline? _previewTimeline;
+    private PreviewRequest? _previewRequest;
+    private bool _previewLoading;
     private int _queued;
-    private bool _busy, _syncingMode;
+    private bool _busy, _syncingMode, _updatingRows, _rowColorsDirty;
 
     internal TimelinePanel()
     {
@@ -39,6 +44,9 @@ internal sealed class TimelinePanel : UserControl
         _imagesOnly.CheckedChanged += (_, _) => RefreshEntries();
         _search.TextChanged += (_, _) => { _searchTimer.Stop(); _searchTimer.Start(); };
         _searchTimer.Tick += (_, _) => { _searchTimer.Stop(); RefreshEntries(); };
+        // Notifications can arrive several times per capture. Never post one UI callback per state.
+        _refreshTimer.Tick += (_, _) => { if (Visible && Volatile.Read(ref _queued) != 0) RefreshEntries(); };
+        _refreshTimer.Start();
         var searchRow = new Panel { Dock = DockStyle.Top, Height = 30 };
         var clearSearch = new Button { Text = "×", Dock = DockStyle.Right, Width = 30, AccessibleName = "清空搜索" };
         clearSearch.Click += (_, _) => _search.Clear();
@@ -81,7 +89,8 @@ internal sealed class TimelinePanel : UserControl
         _rows.Columns.Add("图", 28);
         _rows.ShowItemToolTips = true;
         _rows.Resize += (_, _) => _rows.Columns[3].Width = Math.Max(130, _rows.ClientSize.Width - 320);
-        _rows.SelectedIndexChanged += (_, _) => ShowEntry();
+        _rows.ListViewItemSorter = new TimelineRowComparer();
+        _rows.SelectedIndexChanged += (_, _) => { if (!_updatingRows) ShowEntry(); };
         _rows.DoubleClick += (_, _) => OpenPreview();
         _rows.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { OpenPreview(); e.Handled = true; } };
         _rows.MouseClick += (_, e) => { var hit = _rows.HitTest(e.Location); if (hit.Item is { } item && hit.SubItem == item.SubItems[5]) OpenPreview(); };
@@ -92,6 +101,7 @@ internal sealed class TimelinePanel : UserControl
         Controls.Add(_preview);
         Controls.Add(_footer);
         Resize += (_, _) => CompactLayout();
+        VisibleChanged += (_, _) => { if (Visible && IsHandleCreated) RefreshEntries(); };
     }
 
     private void CompactLayout()
@@ -135,14 +145,13 @@ internal sealed class TimelinePanel : UserControl
                 else item.ForeColor = item is ToolStripLabel ? muted : Color.White;
         foreach (var box in new[] { _filter, _category, _level, _status, _source }) { box.BackColor = background; box.ForeColor = foreground; }
         _footer.ForeColor = muted;
+        _rowColorsDirty = true;
         RefreshEntries();
     }
 
     private void OnChanged()
     {
-        if (IsDisposed || !IsHandleCreated || Interlocked.Exchange(ref _queued, 1) != 0) return;
-        try { BeginInvoke(new Action(() => { Interlocked.Exchange(ref _queued, 0); if (!IsDisposed) RefreshEntries(); })); }
-        catch (InvalidOperationException) { Interlocked.Exchange(ref _queued, 0); }
+        Interlocked.Exchange(ref _queued, 1);
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -154,28 +163,42 @@ internal sealed class TimelinePanel : UserControl
     private void RefreshEntries()
     {
         if (_timeline is null) return;
+        Interlocked.Exchange(ref _queued, 0);
         if (_capture is not null && _captureMode.SelectedIndex != (int)_capture.Mode)
         { _syncingMode = true; try { _captureMode.SelectedIndex = (int)_capture.Mode; } finally { _syncingMode = false; } }
-        string? selected = (_rows.SelectedItems.Count > 0 ? _rows.SelectedItems[0].Tag as TimelineEntry : null)?.Id;
         var loaded = _timeline.Snapshot();
-        var matched = FilteredEntries();
+        var matched = FilteredEntries(loaded);
         var entries = matched.Take(300).ToArray();
+        var visibleIds = entries.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
+        _updatingRows = true;
         _rows.BeginUpdate();
-        _rows.Items.Clear();
-        foreach (var entry in entries)
+        try
         {
-            var cue = ActivityPresentation.Cue(entry);
-            var row = new ListViewItem(entry.At.ToLocalTime().ToString("HH:mm:ss")) { Tag = entry, ToolTipText = $"{entry.Summary}\n{entry.Operation} {entry.Action} · {entry.Outcome} · {entry.ElapsedMs} ms\n{entry.CaptureStatus}", UseItemStyleForSubItems = false };
-            row.SubItems.Add(entry.Actor + (entry.Source is null ? "" : " ↥"));
-            row.SubItems.Add("● " + cue.Level, Color.White, cue.Color, _rows.Font);
-            row.SubItems.Add(entry.Summary);
-            string status = ActivityPresentation.Status(entry.Outcome);
-            row.SubItems.Add(status, status is "失败" or "未确认" ? Color.White : _rows.ForeColor, status is "失败" or "未确认" ? Color.FromArgb(196, 0, 36) : _rows.BackColor, _rows.Font);
-            row.SubItems.Add(entry.Screenshot is null ? entry.CaptureStatus == "queued" ? "…" : "—" : "▣");
-            _rows.Items.Add(row);
-            if (entry.Id == selected) row.Selected = true;
+            foreach (string id in _rowById.Keys.Where(id => !visibleIds.Contains(id)).ToArray())
+            {
+                var removed = _rowById[id];
+                // Clear native/accessibility focus while the item still belongs to this control.
+                removed.Focused = false;
+                removed.Selected = false;
+                _rows.Items.Remove(removed);
+                _rowById.Remove(id);
+            }
+            var added = new List<ListViewItem>();
+            foreach (var entry in entries)
+            {
+                if (!_rowById.TryGetValue(entry.Id, out var row))
+                {
+                    row = new ListViewItem(new string[6]) { UseItemStyleForSubItems = false };
+                    _rowById.Add(entry.Id, row);
+                    added.Add(row);
+                }
+                if (_rowColorsDirty || !Equals(row.Tag, entry)) UpdateRow(row, entry);
+            }
+            if (added.Count > 0) _rows.Items.AddRange(added.ToArray());
+            if (!_rows.Items.Cast<ListViewItem>().Select(r => ((TimelineEntry)r.Tag!).Id).SequenceEqual(entries.Select(e => e.Id))) _rows.Sort();
+            _rowColorsDirty = false;
         }
-        _rows.EndUpdate();
+        finally { _rows.EndUpdate(); _updatingRows = false; }
         bool healthy = _timeline.WriteError is null && _timeline.NotQueued == 0;
         _health.Text = healthy ? $"● 日志正常 · 队列 {_timeline.PendingWrites} · 不阻塞软件操作" : $"● 日志异常 · {_timeline.NotQueued} 条未入队 · 软件操作继续";
         bool dark = BackColor.GetBrightness() < .5f;
@@ -189,10 +212,36 @@ internal sealed class TimelinePanel : UserControl
         ShowEntry();
     }
 
-    private TimelineEntry[] FilteredEntries() => _timeline?.Snapshot().Where(e => (_source.SelectedIndex != 1 || e.Source is null) && (_source.SelectedIndex != 2 || e.Source is not null) && ActivityPresentation.Matches(e, _search.Text,
+    private void UpdateRow(ListViewItem row, TimelineEntry entry)
+    {
+        var cue = ActivityPresentation.Cue(entry);
+        row.Tag = entry;
+        row.ToolTipText = $"{entry.Summary}\n{entry.Operation} {entry.Action} · {entry.Outcome} · {entry.ElapsedMs} ms\n{entry.CaptureStatus}";
+        string status = ActivityPresentation.Status(entry.Outcome);
+        string[] text = [entry.At.ToLocalTime().ToString("HH:mm:ss"), entry.Actor + (entry.Source is null ? "" : " ↥"), "● " + cue.Level,
+            entry.Summary, status, entry.Screenshot is null ? entry.CaptureStatus == "queued" ? "…" : "—" : "▣"];
+        for (int i = 0; i < text.Length; i++) if (row.SubItems[i].Text != text[i]) row.SubItems[i].Text = text[i];
+        row.SubItems[2].ForeColor = Color.White;
+        row.SubItems[2].BackColor = cue.Color;
+        row.SubItems[4].ForeColor = status is "失败" or "未确认" ? Color.White : _rows.ForeColor;
+        row.SubItems[4].BackColor = status is "失败" or "未确认" ? Color.FromArgb(196, 0, 36) : _rows.BackColor;
+    }
+
+    private sealed class TimelineRowComparer : System.Collections.IComparer
+    {
+        public int Compare(object? x, object? y)
+        {
+            var a = (TimelineEntry)((ListViewItem)x!).Tag!;
+            var b = (TimelineEntry)((ListViewItem)y!).Tag!;
+            int time = b.At.CompareTo(a.At);
+            return time == 0 ? b.Sequence.CompareTo(a.Sequence) : time;
+        }
+    }
+
+    private TimelineEntry[] FilteredEntries(IReadOnlyList<TimelineEntry>? loaded = null) => (loaded ?? _timeline?.Snapshot() ?? []).Where(e => (_source.SelectedIndex != 1 || e.Source is null) && (_source.SelectedIndex != 2 || e.Source is not null) && ActivityPresentation.Matches(e, _search.Text,
         _filter.SelectedIndex > 0 ? _filter.Text : "", _category.SelectedIndex > 0 ? _category.Text : "",
         _level.SelectedIndex > 0 ? _level.Text : "", _status.SelectedIndex > 0 ? _status.Text : "", _imagesOnly.Checked))
-        .OrderByDescending(e => e.At).ThenByDescending(e => e.Sequence).ToArray() ?? [];
+        .OrderByDescending(e => e.At).ThenByDescending(e => e.Sequence).ToArray();
 
     private async Task TransferAsync(bool importing, bool filtered = false)
     {
@@ -263,8 +312,8 @@ internal sealed class TimelinePanel : UserControl
         var entry = _rows.SelectedItems.Count > 0 ? _rows.SelectedItems[0].Tag as TimelineEntry : null;
         _detail.Text = entry is null ? "选择记录查看详情；点击缩略图或双击有图记录可放大。"
             : $"{entry.ActorName} · {entry.Operation} {entry.Action}\r\n{entry.Outcome} · {entry.ElapsedMs} ms · {(entry.Source is null ? "现场记录" : "导入记录（不执行）")}\r\n{entry.At.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff} · 留图: {entry.CaptureStatus ?? "无"}" + (entry.CapturedAt is { } at ? $" @ {at.ToLocalTime():HH:mm:ss.fff}" : "") + (entry.Screenshot is null ? "" : "\r\n点击下方缩略图放大；预览窗口支持缩放。");
-        string? path = entry is null ? null : _timeline?.ScreenshotPath(entry);
-        if (path == _previewPath && _preview.Image is not null)
+        string? key = entry?.Screenshot is null ? null : entry.Id + "\0" + entry.ScreenshotDirectory + "\0" + entry.Screenshot;
+        if (key == _previewKey && ReferenceEquals(_previewTimeline, _timeline) && _preview.Image is not null)
         {
             _preview.Visible = Height >= 500;
             return;
@@ -273,19 +322,54 @@ internal sealed class TimelinePanel : UserControl
         _preview.Image = null;
         old?.Dispose();
         _preview.Visible = false;
-        _previewPath = path;
-        if (path is null) return;
+        _previewKey = key;
+        _previewTimeline = _timeline;
+        _previewRequest = key is null || entry is null || _timeline is null ? null : new(_timeline, entry, key);
+        if (_previewRequest is not null) _ = LoadPreviewAsync();
+    }
+
+    private sealed record PreviewRequest(OperationTimeline Timeline, TimelineEntry Entry, string Key);
+
+    private async Task LoadPreviewAsync()
+    {
+        // Only one decode runs at a time; rapid selection changes replace the pending request.
+        if (_previewLoading) return;
+        _previewLoading = true;
         try
         {
+            while (!IsDisposed && !Disposing && _previewRequest is { } request)
+            {
+                _previewRequest = null;
+                var result = await Task.Run(() => ReadPreview(request));
+                if (IsDisposed || Disposing || request.Key != _previewKey || !ReferenceEquals(request.Timeline, _previewTimeline))
+                { result.Image?.Dispose(); continue; }
+                if (result.Image is not null)
+                {
+                    _preview.Image = result.Image;
+                    _preview.Visible = Height >= 500;
+                    if (_previewRequest?.Key == request.Key) _previewRequest = null;
+                }
+                else if (result.Failed) _detail.AppendText("\r\nPreview unavailable");
+            }
+        }
+        finally { _previewLoading = false; }
+    }
+
+    private static (Bitmap? Image, bool Failed) ReadPreview(PreviewRequest request)
+    {
+        Bitmap? reduced = null;
+        try
+        {
+            if (request.Timeline.ScreenshotPath(request.Entry) is not { } path) return (null, false);
             using var stream = new MemoryStream(File.ReadAllBytes(path));
             using var image = Image.FromStream(stream);
             float scale = Math.Min(1f, Math.Min(720f / image.Width, 400f / image.Height));
-            var reduced = new Bitmap(Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale)));
+            reduced = new Bitmap(Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale)));
             using (var graphics = Graphics.FromImage(reduced)) graphics.DrawImage(image, 0, 0, reduced.Width, reduced.Height);
-            _preview.Image = reduced;
-            _preview.Visible = Height >= 500;
+            return (reduced, false);
         }
-        catch (Exception ex) when (ex is IOException or ArgumentException or OutOfMemoryException) { _detail.AppendText("\r\nPreview unavailable"); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or OutOfMemoryException or System.Runtime.InteropServices.ExternalException)
+        { reduced?.Dispose(); return (null, true); }
     }
 
     protected override void Dispose(bool disposing)
@@ -293,9 +377,11 @@ internal sealed class TimelinePanel : UserControl
         if (disposing)
         {
             if (_timeline is not null) _timeline.Changed -= OnChanged;
+            _previewRequest = null;
             _preview.Image?.Dispose();
             _preview.Image = null;
             _searchTimer.Dispose();
+            _refreshTimer.Dispose();
         }
         base.Dispose(disposing);
     }
