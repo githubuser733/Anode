@@ -1,0 +1,61 @@
+美卡101星球-交易群：Anode 采集频率实测（2026-11-03）
+
+结论与未完成验证
+当前 CLI/exec + UIA 尾部读取方案，实测平均每 8.14 秒完成一轮，约 7.38 轮/分钟。两个分开的 5 分钟窗口合计 74 轮；轮询间隔 P95 8.64 秒，最慢 8.74 秒。
+实际观察中没有采集到新增文本项，真实关键词命中后截图仍为 UNTESTED；不能把回放验证算成真实新消息验证。消息网络到达至检测的延迟没有参考时钟，本次未测。OBS/OCR 方案没有在本机做对照，CPU/内存资源开销未测。
+
+实测设置
+群窗口：美卡101星球-交易群（界面显示 307 人），Session 5，WeChat PID 135228。
+主桌面和 Viewer 均未被接管。沿用现有 publish-001 Viewer/host，publish-004 只作为子会话中的只读工作进程。
+每轮检查现有 ready/viewOnly/租约状态；读取“消息”列表最后 30 个 UIA 控件，逐项上限 20000 UTF-16 单位，遍历预算 8000 ms。
+记录全部新增文本项；演示关键词为 收、出、转、USDT、积分。循环不调用 LLM，不发送群消息，不复制剪贴板。
+两轮是分开的观察窗口，中间没有连续监控，间隔不计入频率统计。
+第一轮（Asia/Shanghai）：2026/11/3 16:02:23 至 2026/11/3 16:07:24，301.066 秒，37 轮。
+第二轮（Asia/Shanghai）：2026/11/3 17:12:27 至 2026/11/3 17:17:28，300.967 秒，37 轮。
+
+量化结果
+每轮总耗时平均 8.135 秒；从 CLI 发起读取到拿到 JSON 平均 7.750 秒；UIA 遍历平均 4.126 秒。
+errors=0，partialPolls=0，coverageGaps=0；newTextItems=0，keywordHitItems=0。
+partialPolls=0 仅表示请求的尾部窗口与返回字段完整，不保证所有存储历史、图片或未暴露文本已被读取。truncated=true/olderItemsOmitted=true 是有意略去窗口之外的旧条目。
+旧整段读取 publish-003 三次平均 8.394 秒（52 控件）；尾部 publish-004 的 74 次平均 7.750 秒（30 控件），观测到约 7.7% 的减少。样本量、时段和版本不同，此比较不能当严格性能因果实验。
+从分项耗时推断，读取与调用链占主要耗时；本轮没有真实新增消息，不能用空批次匹配耗时代表真实告警耗时。
+若后续要接近秒级，应单独评估常驻读取器与事件通知，以避免每轮启动工作进程；这些优化尚未实现或测量。
+
+单独的管线回放验证（非真实到达）
+使用准备阶段保留的两帧真实 UIA 文本作为录制输入，运行相同的新增比较、关键词匹配、日志写入和 Anode 截图代码。
+新增 2 个文本项（其中包含系统分隔文字），1 个项命中关键词；日志先写入，然后完成一张当前子会话截图。
+截图为 1920×1080，322478 字节，检测到回放变化至图片保存约 343.1 ms。
+该时间不包含实时 UIA 采集，也不是消息网络到达延迟。图片表示回放执行时的当前桌面，不是历史消息到达瞬间。
+RECORDED_FRAME_PIPELINE_OK_NOT_LIVE_TRIGGER，exitCode=0。
+
+去重发现与边界
+准备阶段发现：两帧 30 个控件的运行时标识完全相同，但文本位置发生移动。因此 elementKey 只能诊断控件，不能当消息 ID。
+采用文本序列后缀/前缀重叠；重叠丢失时扩大到最多 200 项补读，仍无法接续则记 coverageGap/unresolved。
+连续相同文字、虚拟化列表、消息撤回、提供方未暴露内容可能造成歧义。此监控不保证无损归档；时间分隔等 ListItem 也会计作文本项。
+本轮未遇到高速突发、需补读的覆盖缺口或群内长文本；这些真实场景验证仍为 UNTESTED。
+
+源码依据（本次已读取与执行检查）
+work/anode-fork/src/Anode/Cli/ChatTextReader.cs:84 —— 尾部遍历与窗口完整性字段。
+work/anode-fork/scripts/measure-chat-monitor.py:45 —— 文本顺序重叠去重。
+work/anode-fork/scripts/measure-chat-monitor.py:147 —— 逐轮 CLI/exec 工作进程调用。
+work/anode-fork/scripts/measure-chat-monitor.py:173 —— 实际截图和哈希记录。
+work/anode-fork/scripts/measure-chat-monitor.py:194 —— 有界实验、先记日志再截图。
+
+验证证据
+publish-004 __text-check：ANODE_TEXT_CHECKS_OK realInputSent=false liveSeatStarted=false filesDeleted=false。
+Python 自检：CHAT_MONITOR_SELF_TEST_OK baseline, duplicate text, recycled IDs, changed history and gap detection。
+文档检查：Checked 43 documents against 41 tools；链接、锚点、工具名一致。
+协议对比：ANODE_TEXT_PROTOCOL_OK，41 tools，38 unchanged，3 additive extensions，6 invalid calls rejected，seatStarted=false。
+PowerShell wrapper：CHAT_READER_WRAPPER_SYNTAX_OK；git diff --check 通过（仅有 LF/CRLF 提示）。
+相关构建成功，0 warnings / 0 errors。未运行会删除临时文件的 selftest --quick，原测试未改为跳过或弱化。
+
+可核验文件与命令
+实验目录：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-chat-monitor-20261103/run-1793691323037
+真实两轮：monitor/summary.json、monitor-02/summary.json；合并：aggregate-live-summary.json。
+逐轮：monitor/polls.jsonl、monitor-02/polls.jsonl；无新项，所以 events.jsonl/captures.jsonl 为空。
+回放：replay-pipeline/replay-verification.json、events.jsonl、captures.jsonl、screenshots/0001.png。
+关键词和文本日志仅保存在本机实验目录，不进入 Git 提交。
+打开两轮 summary.json 应各见 successfulPolls=37、errors=0、coverageGaps=0、newItems=0。
+运行：python -B "F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/measure-chat-monitor.py" --self-test
+预期出现 CHAT_MONITOR_SELF_TEST_OK。
+实验已停止并释放租约；Session 5 保持 ready，Viewer 隐藏且 viewOnly=true，微信保持登录。

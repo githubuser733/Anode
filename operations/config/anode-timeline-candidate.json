@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "executable": "work/anode-capture-responsive-20261105-f07607fd8a/publish/anode.exe",
+  "sourceDirectory": "..",
+  "stateDirectory": "artifacts/anode-timeline-20261031/runtime-state",
+  "evidenceDirectory": "artifacts/anode-capture-responsive-f07607fd8a/activation-001",
+  "channel": "main",
+  "width": 1920,
+  "height": 1080,
+  "sharedClipboard": true,
+  "nativeSignIn": true,
+  "liveVerified": false
+}

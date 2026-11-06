@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "anodeExecutable": "work/anode-screenshot-viewer-20261106-734d2b/publish/anode.exe",
+  "anodeGuide": "work/anode-screenshot-viewer-20261106-734d2b/publish/skills/anode-desktop/SKILL.md",
+  "anodeChannel": "main",
+  "anodeStartupArguments": [
+    "--channel",
+    "main",
+    "start",
+    "--width",
+    "1920",
+    "--height",
+    "1080",
+    "--state-dir",
+    "\"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\artifacts\\anode-timeline-20261031\\runtime-state\"",
+    "--remember-login",
+    "--clipboard"
+  ],
+  "workBuddyLauncher": "scripts/launch_shared_workbuddy_in_anode.ps1",
+  "workBuddyVariant": "workbuddy",
+  "workBuddySharedConfig": "C:\\Users\\Zhang\\.workbuddy",
+  "workBuddyElectronData": "work/recheck-20261031-shared/workbuddy-electron",
+  "workBuddyVerifiedVersion": "5.9.3",
+  "outputDirectory": "artifacts"
+}

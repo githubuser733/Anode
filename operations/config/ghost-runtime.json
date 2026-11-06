@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "version": "0.23.4",
+  "projectDirectory": "work/ghost",
+  "executable": "../../ghost/local/runtime/ghost.exe",
+  "mcpExecutable": "../../ghost/local/runtime/ghost-mcp.exe",
+  "sourceDirectory": "../../ghost",
+  "migrationManifest": "artifacts/ghost-reorganization-20261104-2bdd75c9/migration-plan.json",
+  "migrationResult": "artifacts/ghost-reorganization-20261104-2bdd75c9/migration-result.json",
+  "focusEnvironment": {
+    "GHOST_FOCUS_POLICY": "background",
+    "GHOST_FOCUS_LOCK": "on"
+  },
+  "executableHashes": [
+    {
+      "relativePath": "../../ghost/local/runtime/ghost-http.exe",
+      "sha256": "82ca26339f669d8968735d3501e092449889f661cb1d63c77a394f2126f380b6"
+    },
+    {
+      "relativePath": "../../ghost/local/runtime/ghost-mcp.exe",
+      "sha256": "78ed8b4f71e193fa15bca9adce9cda14c7e85b77d09282a2a674d992da45fb10"
+    },
+    {
+      "relativePath": "../../ghost/local/runtime/ghost.exe",
+      "sha256": "878c2e09da4818f42d74f6c4be5f2b176ea4d0bcc710388d60afc6fc6572d966"
+    }
+  ],
+  "verified": {
+    "doctorRequiredChecks": true,
+    "cliVersion": true,
+    "fileHashes": true
+  },
+  "notRetested": [
+    "MCP cold startup",
+    "GUI application behavior"
+  ]
+}

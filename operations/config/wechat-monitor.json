@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "name": "星创票务 收分群",
+      "id": "44882936563@chatroom"
+    },
+    {
+      "name": "✈️方舟航空✈️壹",
+      "id": "27163116190@chatroom"
+    }
+  ],
+  "keywords": [
+    "收",
+    "UA"
+  ],
+  "keywordMode": "any",
+  "destination": {
+    "name": "文件传输助手",
+    "id": "filehelper"
+  },
+  "historyPerGroup": 100,
+  "pageSize": 200,
+  "maxMessagesPerBatch": 3000,
+  "maxCharactersPerBatch": 90000,
+  "pollSeconds": 2,
+  "overlapSeconds": 300,
+  "maxPollMessagesPerGroup": 2000,
+  "maxDeliveryCharacters": 3500,
+  "maxBriefCharacters": 360,
+  "maxGroupBriefCharacters": 95,
+  "deliveryMinimumIntervalSeconds": 3600,
+  "model": "gpt-6.1-terra",
+  "modelConnectionFile": "C:/Users/Zhang/.codex/codex-app-server-bridge/clients/alpha/connection.json",
+  "stateDirectory": "artifacts/wechat-monitor-state",
+  "runsDirectory": "artifacts/wechat-monitor-runs",
+  "sendingMode": "explicit-native-ui-dispatch-only",
+  "apiSendingEnabled": false,
+  "resident": {
+    "stateDirectory": "artifacts/wechat-resident/state",
+    "runsDirectory": "artifacts/wechat-resident/runs",
+    "reportsDirectory": "artifacts/wechat-resident/reports",
+    "aggregateSeconds": 0,
+    "notificationMinimumIntervalSeconds": 60,
+    "catchupWindowSeconds": 300,
+    "maximumBackoffSeconds": 300,
+    "healthStaleSeconds": 120,
+    "previousReportDirectories": [
+      "F:\\AI infrastructure\\agent-Windows-operation\\artifacts\\wechat-resident\\reports"
+    ]
+  },
+  "notes": "Only these two groups. Historical replay is labelled. No background sender or API fallback. The separate API/MCP send experiment requires explicit per-experiment authorization."
+}

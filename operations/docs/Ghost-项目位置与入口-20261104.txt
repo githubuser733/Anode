@@ -1,0 +1,44 @@
+Ghost 项目位置与入口（2026-11-04）
+
+Ghost 0.23.4 已整体移入本项目 work\ghost，与 work\anode-fork 并列。
+包括便携程序、完整源码归档目录、源压缩包、下载包和下载分片；未只移动可执行文件。
+迁移共 8 个顶层项目项、285 个文件、42,794,153 字节，迁移前后逐文件 SHA256 一致，原物理路径已不存在。
+
+当前位置
+项目根目录：F:\AI infrastructure\agent-Windows-operation
+Ghost 项目：work\ghost
+程序：work\ghost\ghost-portable-v0.23.4\ghost.exe
+原生 MCP：work\ghost\ghost-portable-v0.23.4\ghost-mcp.exe
+源码：work\ghost\ghost-source-archive-1\ghost-0.23.4
+已核验路径与参数：config\ghost-runtime.json
+
+日常入口
+1. launchers\Ghost-Check.cmd：双击检查迁移内容、版本、doctor，窗口保留结果。
+2. launchers\Ghost-CLI.cmd：原生 CLI 入口，例如在项目目录运行：
+   .\launchers\Ghost-CLI.cmd --version
+3. launchers\Ghost-MCP.cmd：原生 stdio MCP 入口，供 Agent/MCP 客户端使用。
+   stdout 交给原生 MCP，不添加提示文字。
+   只校验入口、不启动 MCP：.\launchers\Ghost-MCP.cmd -CheckOnly
+
+复核命令
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-GhostProject.ps1
+预期末行 GHOST_PROJECT_SETUP_OK；doctor 的可选 vision key WARN 不属于必需检查失败。
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-ProjectSetup.ps1
+预期末行 PROJECT_SETUP_OK。
+
+边界
+本次为文件迁移和入口整理，没有操作目标应用，也没有重启 Anode、注销子会话或移动活动 Anode 目录。
+CLI 与 MCP 入口在各自进程环境中固定 GHOST_FOCUS_POLICY=background、GHOST_FOCUS_LOCK=on。
+MCP 冷启动和 GUI 兼容性未在本轮重新实测，标记 UNTESTED；既往实测记录仍保留在 artifacts\history-20261031。
+本轮没有运行 ghost verify。未修改用户软件的业务数据、登录信息或全局 MCP 配置。
+
+证据与清理
+迁移、校验和候选回收清单：artifacts\ghost-reorganization-20261104-2bdd75c9。
+历史归档、凭据、备份与共享开发工具保持原样。
+其他旧测试材料尚未回收；必须在用户查看本批完整清单并回复本批口令后才执行。
+
+2026-11-04 回收执行补记（取代上文的本批“尚未回收”状态）
+用户查看完整清单并回复本批口令后，12 项旧 Trope/MouseMux 测试材料已移入 Windows 回收站。
+共 353 个文件、285,144,514 字节，回收内容 SHA256 全部核对一致，原路径均不存在；回收站未清空。
+Ghost、Anode、历史证据、备份和已安装 MouseMux 服务保持不变；三个 Anode 进程及服务进程身份核对通过。
+完整结果与用户复核：docs\Ghost-迁移与回收结果-20261104.txt；执行审计在 artifacts\ghost-reorganization-20261104-2bdd75c9\cleanup-result.json。

@@ -1,0 +1,10 @@
+{
+  "executable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Grok Bot\\Grok Bot.exe",
+  "verifiedInstalledVersion": "0.78.1",
+  "sourceUserData": "C:\\Users\\Zhang\\AppData\\Roaming\\Grok Bot",
+  "sourceDataRoot": "C:\\Users\\Zhang\\.grokbot",
+  "runtimeDirectory": "work/grokbot-multiopen",
+  "loginMode": "seed-existing-login-files-without-overwriting",
+  "seedUserDataFiles": ["Local State", "sand-secrets.json"],
+  "seedDataFiles": ["settings.json"]
+}

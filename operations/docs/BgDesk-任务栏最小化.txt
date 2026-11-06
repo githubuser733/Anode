@@ -1,0 +1,41 @@
+﻿BgDesk 原生窗口任务栏最小化（2026-10-31）
+
+当前状态
+任务栏功能代码已构建并部署，10 项原生窗口检查和6项坐标回归全部通过。
+真实任务栏按钮的人工验收仍待反馈；最小化后的实机画面刷新尚未验证（UNTESTED）。
+当前宿主：work\bgdesk-taskbar-20261031\publish-001\bgdeskw.exe。
+日常入口仍为 launchers\BgDesk-Start-Fixed.lnk，实际构建由 config\bgdesk-runtime.json 选择。
+
+使用方法
+1. 运行后主桌面任务栏应有 BgDesk 按钮，可从该按钮打开原生窗口。
+2. 点原生窗口右上角“—”最小化到任务栏，再点任务栏按钮恢复。
+3. 用托盘 Hide 或点窗口“X”仍只隐藏窗口；任务栏按钮可用于恢复。
+4. 浏览器接管前，使用已经验证有效的 Hide 隐藏原生窗口，避免两种输入通道同时工作。
+
+已执行验证
+回归先返回 VIEWER_TASKBAR_ENTRY_DISABLED（退出码1），修改后返回
+VIEWER_UI_CHECKS_OK checks=10；6项坐标测试 pass=6 fail=0。
+10项检查覆盖显示、任务栏入口、最小化按钮、真实窗口样式、工作区范围、
+最小化状态、还原、RDP控件句柄稳定、隐藏保持绘图及隐藏后系统还原消息。
+宿主部署记录：host=logged-in，agent=true，前端资源匹配。
+主桌面 Grok Bot、子会话 Grok Bot 和后台 agent 的三个进程保持不变。
+项目检查返回 PROJECT_SETUP_OK。
+
+环境条件
+当前正常用户的 RDP RemoteDesktop_SuppressWhenMinimized 值已经是2。
+这次部署只读取并核对该值，没有写入或删除注册表设置。
+最小化后的实际画面刷新需要另外实测，不能用该设置或窗体测试代替。
+RenderPulse 是为此准备的隔离测试程序，已编译；尚未运行，标记 UNTESTED。
+
+浏览器任务栏与鼠标情况
+用户确认：原生窗口内能看到子会话的 Windows 任务栏，浏览器不能。
+原版 agent 的 Layers.cs:125 使用 Screen.PrimaryScreen.WorkingArea 作为单层范围；
+当前层是1920x1032，子会话桌面是1920x1080，底部任务栏不在浏览器图层中。
+本次显示宿主修改没有扩展 agent 图层范围，浏览器任务栏问题仍保留。
+用户也确认：原生窗口显示时浏览器点击会使主鼠标跳动，隐藏原生窗口后正常。
+没有把此问题归因于浏览器窗口较小，也没有宣称同时显示两种查看器已修复。
+
+文件与证据
+源码：work\bgdesk-taskbar-20261031\source。
+验证和补丁：artifacts\bgdesk-taskbar-20261031。
+原运行版本和配置、脚本备份均保留；没有删除文件或退出 Windows 子会话。

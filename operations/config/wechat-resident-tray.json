@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "executable": "work/wechat-resident-tray-20261104-224309-1f8eaf46/WeChatResidentTray.exe",
+  "sha256": "1dbed116942900f5ed8bcb492397b06987f7bb2371172254632a8b21dd7b0be6",
+  "pythonExecutable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "workerTask": "AgentWindowsOperation-WeChatResident",
+  "watchdogTask": "AgentWindowsOperation-WeChatResident-Watchdog",
+  "guiSubsystem": 2,
+  "source": "scripts/wechat_monitor/WeChatResidentTray.cs",
+  "sourceSha256": "8fa4fe8148beb55c3ebcd4592e97202792f283f65835a91cd29f72f7e8f29d9e"
+}

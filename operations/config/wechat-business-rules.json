@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "version": "cx-88000-985-v1",
+  "enabled": true,
+  "unknownAction": "dashboard-only",
+  "cx": {
+    "quantityPerPerson": 88000,
+    "minimumCnyPerWan": 985
+  },
+  "notes": "Explicit CX text only. Exact per-person specification and inclusive price threshold. Preserve raw messages. Uncertain unit, multiple prices/specifications, mixed products or currencies remain dashboard-only. Other messages retain keyword behavior."
+}

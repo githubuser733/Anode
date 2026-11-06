@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "viewerPort": 5032,
+  "alphaUserData": "C:/Users/Zhang/AppData/Roaming/Alpha",
+  "edgeExecutable": "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "pythonExecutable": "C:/Users/Zhang/AppData/Local/Programs/Python/Python312/python.exe",
+  "browserProfileRoot": "work/alpha-readonly-guest",
+  "validatedAlphaVersion": "0.3.5",
+  "upstreamDocsCommit": "09232cbca892241fd3d2046957832a6b4d764ddc"
+}

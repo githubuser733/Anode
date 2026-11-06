@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "bounded-workflow-tested",
+  "monitorSources": [
+    {
+      "name": "星创票务 收分群",
+      "id": "44882936563@chatroom",
+      "access": "read-only"
+    },
+    {
+      "name": "✈️方舟航空✈️壹",
+      "id": "27163116190@chatroom",
+      "access": "read-only"
+    }
+  ],
+  "notificationDestination": {
+    "name": "文件传输助手",
+    "id": "filehelper"
+  },
+  "allowedSendDestinationIds": [
+    "filehelper"
+  ],
+  "groupSendingAllowed": false,
+  "preferredSendChannel": "Anode-native-WeChat-UI",
+  "apiSendRequiresExplicitHumanApproval": true,
+  "automaticFallbackToApiSendAllowed": false,
+  "automaticSendingEnabled": false,
+  "retryUnknownSendOutcomeAllowed": false,
+  "riskControl": "Avoid frequent mechanical operations; stop on rate-limit or account warnings. Random delays are not a safety guarantee.",
+  "verificationEvidence": "artifacts/wechat-monitor-runs/20261104-161813-digest-4d4801/native-attempt-bf47fcfa.json",
+  "destinationEvidence": "artifacts/alpha-summary-limits-20261104-df2c3b40/resolved-file-transfer.json",
+  "note": "The implemented bounded workflow reads config/wechat-monitor.json. No persistent background sender is enabled. API/MCP sends were explicitly tested once each and both rejected before sending; activation and connection settings were not changed.",
+  "keywords": [
+    "收",
+    "UA"
+  ],
+  "runtimeConfiguration": "config/wechat-monitor.json",
+  "apiSendExperimentEvidence": "artifacts/wechat-alert-summary-20261104-075757-c3be40/api-mcp-send-test/result.json",
+  "apiSendCurrentBlocker": "SEND_CONNECTION_REQUIRED"
+}

@@ -1,0 +1,32 @@
+Anode 文本读取实测与并发开发说明 — 2026-11-03
+
+已通过：真实微信列表读取、11552 字符补读与复制回读、短文本不截图/长文本条件截图、父会话访问拒绝。关键词监控未启动，长期延迟与突发消息覆盖未验证。
+Git：F:\AI infrastructure\agent-Windows-operation\work\anode-fork
+分支：codex/anode-text-reading
+提交：23d0452452511de3753eb7e44ac87136ce4983a8
+共同 Timeline 基线：d0dab51
+尚未推送 GitHub。
+
+并发开发：让 Timeline 对话从上述本地 Fork、以 d0dab51 为基线创建独立工作树及 codex/anode-timeline-next 分支。不要继续把旧 work/anode-timeline-20261031/source 目录当作 Git 工作树。该旧目录目前没有 Git。之后合并分支、处理重叠代码冲突并重新编译/测试。两边的源码构建可以并行，运行版本切换与共享子会话实机测试需要协调。
+
+当前 Viewer/host：F:/AI infrastructure/agent-Windows-operation/work/anode-text-20261103/publish-001/anode.exe
+已实测的后台定向 reader：F:/AI infrastructure/agent-Windows-operation/work/anode-text-20261103/publish-003/anode.exe
+reader SHA256：28861f60a938f40193c2e51e2870bfd9e4686a9576b0249033a73d7cfa7f39d2
+Session 5 保持 ready；租约已释放，隔离测试窗口和本次打开的独立聊天窗口已关闭。当前主机没有替换成 publish-003，也没有重启子会话。
+
+微信实测：WeChat product 3.9.12.1000 / file 3.9.12.51；文件传输助手的当前 UIA 消息列表返回 55 个 ListItem 和 1 个 Button。8 秒预算下遍历耗时 4437 ms，truncated=false，返回字段 complete=true。这不代表全部存储历史，也不代表端到端持续监控延迟。4 秒预算在实测中仍可能截断，必须检查标记。
+长文本实测：11552 个 UTF-16 单元，补读和真实 Ctrl+C 回读均与原测试数据完全一致；剪贴板来源进程校验通过。短文本没有生成截图；长文本触发 1280x720 输出图，原始子桌面 1920x1080。复制后的剪贴板被外部更新，恢复保护拒绝覆盖较新内容；未强行还原。
+
+离线验证：文本与旧控件/CLI/协议检查、38 项 Timeline、96 项 Activity、41 个 MCP 工具（38 个不变，3 个向后兼容扩展）、43 个文档检查通过。
+完整 selftest --quick 未运行，因为旧套件会永久删除临时文件；原测试没有改弱。已连接 MCP 客户端的 schema 刷新尚未执行，本轮实测通过 CLI/exec。
+
+复验清单：
+1. PowerShell 运行：
+& 'F:\AI infrastructure\agent-Windows-operation\scripts\Test-AnodeChatReader.ps1'
+预期末行附近 ANODE_CHAT_READER_CANDIDATE_OK，每次生成新证据，不删除旧文件。
+2. 查看 Git：
+git -C 'F:\AI infrastructure\agent-Windows-operation\work\anode-fork' log -3 --oneline
+预期包含 23d0452、34d0500、d0dab51。
+3. 读取入口与参数：F:\AI infrastructure\agent-Windows-operation\work\anode-fork\docs\TEXT-READING.md
+4. 实测结构化报告：F:\AI infrastructure\agent-Windows-operation\artifacts\anode-text-20261103\live-20261103-1420-1793686519606\final-manifest.json
+5. 离线完整证据：F:\AI infrastructure\agent-Windows-operation\artifacts\anode-text-20261103\reader-verify-aa90b81cd5d24e9db03b740d7b1298ea

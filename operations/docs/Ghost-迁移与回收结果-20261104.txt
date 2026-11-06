@@ -1,0 +1,38 @@
+Ghost 迁移与旧测试材料回收结果（2026-11-04）
+
+已完成
+1. Ghost 完整项目移入 F:\AI infrastructure\agent-Windows-operation\work\ghost，和 work\anode-fork 并列。
+2. 8 个顶层项目项、285 个文件、42,794,153 字节迁移前后 SHA256 一致；原物理路径已不存在。
+3. Ghost 0.23.4 的版本、doctor 必需项、三个入口检查通过；原有项目检查通过。
+4. 用户查看完整回收清单后主动回复本批口令，随后只处理该清单：12 项、353 个文件、285,144,514 字节移入 Windows 回收站。
+5. 353 个回收文件的 SHA256 全部与批准清单一致；12 个原路径均不存在，回收站项目可读。原有回收站条目保持存在。
+6. 三个 Anode 进程与已安装 MouseMux 服务进程保持原 PID、程序路径、会话及创建时间；未重启 Anode 或注销子会话。
+
+保留内容
+- Ghost 与 Anode 的源码、运行目录和历史证据。
+- artifacts\history-20261031 的 191 个文件，原始内容和清单不变。
+- Trope 两个旧测试配置的核验副本：artifacts\ghost-reorganization-20261104-2bdd75c9\retained-trope-config。
+- 其他备份、凭据、业务数据、共享 SDK/NuGet 工具。
+- MouseMux 的已安装软件与服务。本次只回收其旧下载和解包测试材料。
+
+回收站没有清空；移入回收站不等于已释放对应磁盘空间。未使用永久删除回退。
+本轮未重新验证 Ghost MCP 冷启动或 GUI，仍为 UNTESTED。
+
+用户复核
+1. 打开 work\ghost，查看完整便携包、源码、源压缩包与下载材料。
+2. 双击 launchers\Ghost-Check.cmd，预期最后出现 GHOST_PROJECT_SETUP_OK；可选 vision key WARN 不影响必需项通过。
+3. 在本项目目录运行：
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-ProjectSetup.ps1
+   预期最后出现 PROJECT_SETUP_OK。
+4. 打开 Windows 回收站，按原位置或名称核对本批 trope-*、mousemux-* 项目；需要恢复时使用 Windows“还原”。
+
+审计依据
+artifacts\ghost-reorganization-20261104-2bdd75c9\migration-plan.json
+artifacts\ghost-reorganization-20261104-2bdd75c9\migration-result.json
+artifacts\ghost-reorganization-20261104-2bdd75c9\cleanup-plan.json
+artifacts\ghost-reorganization-20261104-2bdd75c9\cleanup-all-files.csv
+artifacts\ghost-reorganization-20261104-2bdd75c9\approval-received.json
+artifacts\ghost-reorganization-20261104-2bdd75c9\cleanup-result.json
+artifacts\ghost-reorganization-20261104-2bdd75c9\recycle-execution.jsonl
+
+Invoke-ReviewedRecycle-20261104.py 是本批一次性执行记录，不代表任何未来批次的授权；不要重复执行 --execute。

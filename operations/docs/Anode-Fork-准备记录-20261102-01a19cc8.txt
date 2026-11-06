@@ -1,0 +1,46 @@
+Anode Fork 准备记录
+日期：2026-11-02
+
+GitHub 仓库：https://github.com/githubuser733/Anode
+上游项目：https://github.com/skulitom/Anode
+Fork 页面已确认显示 forked from skulitom/Anode。
+
+本地独立仓库：
+F:\AI infrastructure\agent-Windows-operation\work\anode-fork
+
+origin：https://github.com/githubuser733/Anode.git
+upstream：https://github.com/skulitom/Anode.git
+本地分支：codex/anode-custom-v0.11.3
+基线标签：v0.11.3
+基线提交：0836c780c75eb68afcd15b825c9d62d61fd32b0b
+
+已执行核验：
+1. Fork 创建结果及上游关系已在已登录浏览器中确认。
+2. 在新目录完成 Git 克隆，配置 origin、upstream。
+3. 从上游读取 v0.11.3 标签，确认对应上述固定提交。
+4. 创建本地开发分支，核对 HEAD、分支及干净工作树。
+结果：FORK_CLONE_BASELINE_OK。
+
+当前范围：
+GitHub main 分支为创建 Fork 时复制的上游版本。
+本地 codex/anode-custom-v0.11.3 分支固定在现有定制版的原始基线。
+本地 Timeline/Activity 定制改动尚未迁移、提交或上传。
+正在开发的源码及运行中的 Anode 仍由原聊天管理。
+本次仅验证仓库准备状态，没有重新编译或执行程序功能测试。
+
+后续迁移：
+等待 Timeline 开发保存稳定快照，再将确认过的源码及必要文档迁移到本地开发分支。
+逐项审阅差异、运行相关检查后再提交并推送到自己的 Fork。
+上游版本升级另行合并；不直接用旧定制目录覆盖上游 main。
+迁移范围不包含登录配置、凭据、运行目录、聊天资料、日志和截图。
+
+只读复核命令：
+git -C "F:\AI infrastructure\agent-Windows-operation\work\anode-fork" remote -v
+git -C "F:\AI infrastructure\agent-Windows-operation\work\anode-fork" branch --show-current
+git -C "F:\AI infrastructure\agent-Windows-operation\work\anode-fork" rev-parse HEAD
+git -C "F:\AI infrastructure\agent-Windows-operation\work\anode-fork" status --short
+
+预期：两个远程地址如上；分支如上；HEAD 如上；最后一条命令无输出。
+
+证据目录：
+F:\AI infrastructure\agent-Windows-operation\artifacts\anode-fork-20261102-01a19cc8

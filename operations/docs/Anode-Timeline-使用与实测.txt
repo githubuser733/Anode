@@ -1,0 +1,67 @@
+Anode Timeline：使用与实测（2026-10-31）
+
+结论
+publish-004 已在本机 Session 8 完成 Agent / Human 操作记录、人工归还后的 Agent 接续、隐藏 Viewer 后记录、历史恢复、Human 筛选及截图预览验证。
+早先 publish-002 漏记真人输入，不作为通过版本。完整上游 selftest --quick 未运行；长期运行稳定性、所有桌面软件兼容性仍未验证。
+
+日常入口
+双击项目 launchers\Anode-Timeline-1920x1080.lnk。
+无现有候选会话时：启动1920x1080、共享剪贴板及 Windows 原生登录。
+候选已运行时：直接显示原有 Viewer，不重启会话，不重新请求登录。
+关闭 Viewer 只隐藏窗口；Stop seat 会结束子会话并关闭其中的应用。
+原版入口与程序保留。原版已占用会话时，新入口会拒绝混用；请保存工作后再切换。
+
+使用 Timeline
+工具栏 Timeline 打开或收起右侧面板。
+下拉框选择 All activity / Agent / Human；点击记录查看时间、动作、结果、耗时。
+含截图的记录会显示预览。截图来自 Agent 已经请求的截图，不是每步自动截屏或录像。
+Human 只覆盖通过这个 Viewer 的实际输入与接管/归还；应用内部后台操作不在覆盖范围。
+正文输入只记录数量；ActiveX 没有字符消息时显示 Keyboard input: N key events，不能等同于最终输入字符数。
+日志中的 ok 表示工具调用返回成功，不保证应用真正收到输入。仍须观察目标应用确认。
+截图可能包含屏幕上的文字；事件摘要不保存键入正文、密码、令牌或命令参数。
+无自动回放，无自动删除日志和截图。
+
+本次实测证据
+用户确认：逐字输入成功，Timeline 出现点击和输入记录。
+实际记事本文字为 TL HUMAN 004 OK（空格形式）；随后 Agent 成功追加 TL_AGENT_AFTER_HUMAN_OK 和 TL_HIDDEN_RECORD_OK。
+真人日志：7次点击、6段键盘输入、1次接管、1次归还。
+输入观察器：3个本进程 Viewer 线程，native=31、accepted=31、dropped=0。
+只读界面筛选显示19条 Human 记录（含前一会话4条历史接管/归还）；全部活动显示67条（当时快照）。
+Agent 接续输入时一次前后观察的主桌面窗口与鼠标坐标相同。隐藏测试期间用户仍在移动鼠标，不能据此宣称每次坐标都不变。
+38项专用离线检查通过；41个 MCP 工具 schema 与原版一致。
+跨线程旧路径回归预期失败 CROSS_THREAD_HUMAN_INPUT_MISSING，新路径返回 exit 0。
+PROJECT_SETUP_OK；新增快捷方式目标与参数回读一致。
+
+已经处理的测试问题
+旧 WinForms IMessageFilter 漏掉 RDP 原生输入线程：改为只观察本进程 Viewer 子窗口的非零线程 ID，并将事件送回界面线程。
+输入消息不被修改、吞掉或重放；PointerGuard 保持原实现。
+重启后的旧 MCP 连接返回 Pipe is broken：已替换测试桥接进程并重新连接。
+释放租约后旧 windowId 失效：重新列举窗口后恢复，不复用过期引用。
+等待人工登录时启动命令曾超时；用户完成登录后后台服务进入 ready，不是后台服务退出。
+重复 start --sign-in 返回 exit 2：项目入口现在检测已有候选并执行 show，实测输出 ANODE_TIMELINE_VIEWER_OPENED state=ready session=8。
+截图工具返回多个区域时的首个保存尝试格式错误，保留了空草稿；交付图片使用 viewer-human-filter-verified.png 和 viewer-final.png。
+
+仍保留的限制
+Session 8 的 osd 自启动窗口曾占据前台，导致自动点击/键入返回成功但记事本无文字；人工点中记事本后 Agent 接续正常。没有修改或结束 osd，也未解决其自启动抢焦点行为。
+本次 Timeline 收起操作被桌面前台保护拦截，未完成该项自动实机检查；离屏布局预览通过。
+完整上游 selftest --quick 包含文件删除，与本项目的删除规则冲突，因此未运行；没有删改或弱化这些测试。
+新入口的重复打开分支已在 Session 8 执行；初次启动分支已实际建立该会话，慢速人工登录可能超过原版 CLI 等待时间。
+长期稳定性和 Windows 更新后的兼容性仍需后续使用观察，不能给出可信的故障日期或维护概率。
+
+文件位置
+程序：work\anode-timeline-20261031\publish-004\anode.exe
+源码：work\anode-timeline-20261031\source
+参数：config\anode-timeline-candidate.json
+启动脚本：scripts\Start-AnodeTimeline.ps1
+事件与截图：artifacts\anode-timeline-20261031\runtime-state\timeline
+源码补丁：artifacts\anode-timeline-20261031\timeline-source-004.patch
+实机证据：artifacts\anode-timeline-20261031\live-003
+
+可重复检查（在项目根目录运行）
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AnodeTimeline.ps1 -Preview
+预期：ANODE_TIMELINE_CHECKS_OK checks=38、ANODE_TIMELINE_MCP_DISCOVERY_OK、ANODE_TIMELINE_OFFLINE_OK。
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AnodeTimelineLive.ps1 -Since "2026-10-31T17:28:10+08:00"
+预期：humanClicks=7、humanText=6（继续人工操作后可增加），末尾 ANODE_TIMELINE_LIVE_METADATA_OK。
+此命令只检查事件覆盖；界面和输入结果请打开 Viewer 查看。
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-ProjectSetup.ps1
+预期末尾：PROJECT_SETUP_OK。

@@ -1,0 +1,39 @@
+﻿BgDesk 浏览器偏移复验记录（2026-10-31）
+
+当前结论
+原生 Show background desktop 已获得用户确认：窗口显示正常，可以点击目标。
+浏览器真人复验先报告仍偏移。随后检查真实 Edge 标签页，发现该页仍执行旧代码。
+已通过普通重新载入使真实标签页加载修复代码，9 个位置的纯坐标换算通过。
+重新载入后的真人点击结果仍待确认，自动输入继续暂停。
+
+现场证据
+重新载入前：DOM 只有 /app.js，没有 /viewport.js；stageAspect 为空。
+通过开发接口只读取得的实际 toTile 函数仍引用 TILE.w / TILE.h。
+同一页面以 cache=no-store 读取服务器资源时，index、app.js、viewport.js 已为修复版。
+Service Worker 未控制该页；尚未确定页面未载入新资源的具体浏览器生命周期原因。
+不把此现象泛化为浏览器缓存故障，也不需要清空浏览器数据。
+
+处理与结果
+对现有用户标签页执行一次普通 reload，没有重启宿主、agent 或子会话应用。
+重新载入后实际 DOM 包含 /viewport.js 与 /app.js，stageAspect=1920 / 1032。
+实际 layer.tile=[0,0,1920,1032]，传输 JPEG 为 1440x774。
+9 个位置含四角与中心的映射均匹配；中心返回 (960,516)。
+这些检查只计算位置，没有发送远程键盘、鼠标或消息。
+Timeline 保留。用户已先归还控制，重新载入后 holding=false。
+
+机制与日常操作
+宿主更新和页面恢复 Live 连接，不代表该页面重新载入了 JavaScript。
+当前源码 web/app.js:232-254 在断线后重建 WebSocket，没有重新载入整个页面。
+因此以后更换宿主版本，应对 Agent workplace 页面执行刷新。
+本轮没有新增自动刷新机制或修改源代码。
+
+验收清单
+1. 在当前已经重新载入的 Edge Agent workplace 点击 Take over。
+2. 分别点击 Grok Bot 输入框、左侧会话和窗口按钮，检查命中位置。
+3. 测试结束点击 Hand back；最终真人结果另记，不以9点计算代替。
+
+证据目录
+artifacts/bgdesk-browser-followup-20261031
+live-page-before-*.json/png：真实页面重新载入前状态。
+loaded-code-before-*.json：旧的已加载 toTile 实现。
+live-page-after-*.json/png：真实页面重新载入后状态与9点结果。

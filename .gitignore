@@ -29,3 +29,8 @@ __pycache__/
 
 # claude plugin eval output
 evals/results/
+
+# Machine-local integration runtime, profiles and development dependencies.
+/operations/work/
+/operations/artifacts/
+/tools/

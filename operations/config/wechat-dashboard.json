@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "host": "127.0.0.1",
+  "port": 5033,
+  "pythonExecutable": "C:/Users/Zhang/AppData/Local/Programs/Python/Python312/python.exe",
+  "pythonwExecutable": "C:/Users/Zhang/AppData/Local/Programs/Python/Python312/pythonw.exe",
+  "taskName": "AgentWindowsOperation-WeChatDashboard"
+}

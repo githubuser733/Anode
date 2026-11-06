@@ -1,0 +1,81 @@
+﻿Anode Timeline 候选版（2026-10-31）
+
+当前结论
+已基于 Anode v0.11.3 固定源码制作候选版，离线检查30项通过，41个MCP工具定义与原版一致。
+真实 Agent 操作和真人接管尚未实机验收；不能把设计预览当作实际会话操作证据。
+完整上游 selftest --quick 尚未执行：它会用 File.Delete / Directory.Delete 清理临时文件，
+与本项目的文件删除规则冲突。保留证据的专用检查没有删除文件或启动子会话。
+BgDesk 已停止后续优化，未完成项见 BgDesk-停止优化记录-20261031.txt。
+
+已实现的记录
+每条记录显示时间、Agent / Human / CLI、操作、进行中或结果、耗时。
+支持人工接管/归还、点击、拖动、滚动、快捷键与字符/按键数量。
+Agent 的日志来自 Anode 实际请求入口，包含失败、取消及结果未知的情况。
+人工记录只观察已登录、可见且人工控制的 Anode Viewer 内消息，不观察其他应用的全局输入。
+文本正文、命令参数、leaseToken、原始错误文本不会进入 Timeline JSONL。
+截图预览使用工具已经返回的截图；未自动增加每步截图，也未自动录制真人屏幕。
+不经过 Anode 接口或 Viewer 的软件内部操作，不属于这份日志的覆盖范围。
+
+界面与文件
+Viewer 工具栏新增 Timeline 开关；开启时右侧显示可折叠面板。
+开启时窗口最小宽度为900逻辑像素，折叠后恢复原来的560逻辑像素。
+可按 Agent / Human 过滤，选中条目查看状态、耗时及可用截图。
+内存保留最近500条，界面显示最近300条，启动时读取最新8份且不超过32MB的历史日志。
+所有日志与截图保留在磁盘，没有自动清理；恢复历史不会重放输入。
+持久化错误或未入队事件会在面板中提示，不改变工具操作结果。
+
+候选文件
+程序：work\anode-timeline-20261031\publish-002\anode.exe。
+源码：work\anode-timeline-20261031\source。
+候选参数：config\anode-timeline-candidate.json。
+候选状态和未来实机日志：artifacts\anode-timeline-20261031\runtime-state。
+固定源提交：0836c780c75eb68afcd15b825c9d62d61fd32b0b。
+Anode 与 BgDesk 均为 MIT；保留原许可，并在源文档中注明 Timeline 的参考项目。
+当前日常已验证的 Anode 入口还没有改指候选版。
+
+你可以验证
+在项目目录运行：
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AnodeTimeline.ps1 -Preview
+预期包含 ANODE_TIMELINE_CHECKS_OK checks=30、ANODE_TIMELINE_MCP_DISCOVERY_OK，
+以及末尾 ANODE_TIMELINE_OFFLINE_OK。每次在 artifacts 下新建独立验证目录。
+预览是离屏窗口与样例数据，不会启动 Windows 子会话或发送真实输入。
+候选启动预检：
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-AnodeTimeline.ps1 -CheckOnly
+BgDesk 仍占用子会话时，应显示 blockedByExistingSeat=true、launchPerformed=false。
+
+实机下一步
+保存 BgDesk 子会话中的工作并确认退出该会话后，才能启动候选 Anode。
+Windows 同时只允许一套活动 Child Session；脚本不会自行结束其他桌面工具。
+候选入口使用1920x1080、共享剪贴板及 Windows 原生登录。
+随后应在测试记事本验证 Agent 记录、真人接管记录、截图预览、隐藏后记录与历史保留。
+自动化会在人工控制期间暂停。实机结果另记，不提前宣称通过。
+
+证据
+artifacts\anode-timeline-20261031\candidate-manifest.json：构建哈希与源码变更清单。
+同目录 timeline-source.patch：可审查补丁。
+verify-4250a1851d9c4565b8d47a598ce599ee：发布版30项检查、41个工具对照和原生预览。
+同目录 release-build-002.log：最终发布构建。
+最初的共享读取错误及修正日志均保留，最终专用检查已通过。
+
+尚未执行的真实启动分支及真人输入录制验收标记为 UNTESTED；Start-AnodeTimeline.ps1 目前只执行过 -CheckOnly。
+
+2026-10-31 实机更新（publish-004）
+已按用户授权结束 BgDesk Session 6，启动 publish-002 的 Session 7。
+真实 Agent 输入和截图记录已验证；实际输入前需要确认目标窗口焦点。
+publish-002 真人接管测试失败：只记录接管/归还，没有记录实际输入；不能视为功能完整。
+读到的原生窗口线程：WinForms 103392，RDP 输入 IHWindowClass 141472；原来的过滤器只覆盖 WinForms 线程。
+publish-004 改为只观察本进程 Viewer 及其子窗口的非零线程 ID，不安装全桌面 hook，不修改输入消息。
+字符正文不进入事件日志；只记录字符或按键数量。截图仍可能包含屏幕内容。
+跨线程回归旧路径返回 CROSS_THREAD_HUMAN_INPUT_MISSING / exit 1；新路径通过 38 项检查。
+发布版检查输出 ANODE_TIMELINE_CHECKS_OK checks=38，MCP 仍为41工具且 schemaUnchanged=true。
+最终发布构建成功；前一次发布尝试的外层相对日志路径错误已改用绝对路径处理。
+当前候选配置指向 publish-004；日常默认入口尚未提升到候选。
+已获得用户对 Session 7 的保存和重启确认；旧会话退出成功，新版正在等待 Windows 原生登录。
+真人输入的新路径仍待实机复验（UNTESTED on real RDP input），不能仅凭38项离线检查宣称修复完成。
+新增证据：candidate-manifest-004.json、timeline-source-004.patch、native-regression-red.log、native-regression-green.log、release-build-004.log。
+完整上游 selftest --quick 仍未运行：其临时文件删除与本项目删除规则冲突；没有删除或弱化原测试。
+
+2026-10-31 实机验收更新：publish-004 已在Session 8完成真人操作及Agent接续验证。
+7次Human点击、6段输入、接管/归还完整；native=31、accepted=31、dropped=0。
+新入口：launchers\Anode-Timeline-1920x1080.lnk；重复打开分支验证通过。
+以 docs\Anode-Timeline-使用与实测.txt 为当前说明，其中保留osd焦点问题、未跑上游全量自检和未完成折叠实机检查的限制。

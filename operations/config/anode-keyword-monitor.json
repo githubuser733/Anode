@@ -1,0 +1,24 @@
+{
+  "root": "F:/AI infrastructure/agent-Windows-operation/anode/operations",
+  "anode": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-integrated-20261104-031349-f64226\\publish\\anode.exe",
+  "reader": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-integrated-20261104-031349-f64226\\publish\\anode.exe",
+  "readerSha256": "4bc8e2ff5f9d3dfac1b6d253337ad2b5830aa57cfac16b09d4724f439a7c5603",
+  "monitorScript": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-integrated-20261104-031349-f64226\\publish\\monitor\\watch-chat-monitor.py",
+  "monitorSha256": "8a0f741801a3f81e9126a742895768f9a5f126cfc7d27fdc3131c266b4d01222",
+  "stateDirectory": "F:/AI infrastructure/agent-Windows-operation/anode/operations/artifacts/anode-keyword-monitor/state/wechat-meika101-trading",
+  "runsDirectory": "F:/AI infrastructure/agent-Windows-operation/anode/operations/artifacts/anode-keyword-monitor/runs",
+  "agent": "anode-wechat-keyword-monitor",
+  "windowTitle": "美卡101星球-交易群",
+  "processName": "WeChat",
+  "listName": "消息",
+  "keywords": [
+    "收",
+    "出",
+    "转",
+    "USDT",
+    "积分"
+  ],
+  "tailCount": 6,
+  "intervalMs": 250,
+  "durationSeconds": 0
+}

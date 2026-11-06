@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "readerExecutable": "work/anode-text-20261103/publish-004/anode.exe",
+  "readerSha256": "dd6e15d1f3f27e269994284b485c0ef0158ce2d0447fd678044ac3f1eb89e592",
+  "activeViewerExecutable": "work/anode-text-20261103/publish-001/anode.exe",
+  "baselineReaderExecutable": "work/anode-text-20261103/publish-003/anode.exe",
+  "sourceDirectory": "..",
+  "script": "work/anode-fork/scripts/measure-chat-monitor.py",
+  "evidenceDirectory": "artifacts/anode-chat-monitor-20261103/run-1793691323037",
+  "role": "finite read-only CLI/exec monitoring experiment; no Viewer replacement or continuous background installation"
+}

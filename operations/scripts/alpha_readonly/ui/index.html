@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alpha · 只读副窗口</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><div class="brand"><span class="mark">α</span><div><h1>Alpha <span>只读副窗口</span></h1><p>与原 Alpha 共用同一数据后台</p></div></div><div class="tools"><span class="badge">只读</span><select id="account" aria-label="当前账号"></select><button id="refresh">刷新</button></div></header>
+<div id="status" role="status" aria-live="polite">正在连接原 Alpha…</div>
+<main><aside><nav><button id="sessionsTab" class="active">会话</button><button id="searchTab">搜索消息</button></nav>
+<form id="searchForm"><input id="query" placeholder="输入关键词搜索聊天记录" aria-label="消息关键词" maxlength="128"><button>搜索</button></form>
+<input id="filter" placeholder="筛选已加载会话" aria-label="筛选已加载会话">
+<div id="list" class="list"></div><button id="moreSessions" class="more" hidden>加载更多会话</button><button id="moreSearch" class="more" hidden>加载更多结果</button></aside>
+<section class="conversation"><div class="conversation-head"><h2 id="conversationTitle">选择一个会话</h2><p id="conversationMeta">原 Alpha 保持打开即可读取相同的聊天记录</p></div><div id="messages" class="messages"><div class="empty"><span>α</span><h3>同一份记录，多一个窗口</h3><p>在左侧选择会话，或按关键词搜索。<br>本窗口仅查看，不发送、不编辑、不导出。</p></div></div><button id="moreMessages" class="more" hidden>加载更早消息</button><footer>只读访问 · 消息发送与编辑请回到原 Alpha</footer></section></main>
+</body></html>

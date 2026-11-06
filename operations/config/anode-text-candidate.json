@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "executable": "work/anode-text-20261103/publish-001/anode.exe",
+  "sourceDirectory": "..",
+  "baselineExecutable": "work/anode-text-20261103/baseline-build/bin/Anode/debug_win-x64/anode.exe",
+  "evidenceDirectory": "artifacts/anode-text-20261103",
+  "channel": "main",
+  "width": 1920,
+  "height": 1080,
+  "sharedClipboard": true,
+  "nativeSignIn": true,
+  "stateDirectory": "artifacts/anode-timeline-20261031/runtime-state",
+  "sha256": "9419b119a04848bd323cdc60d0b33fe0ea5db97ea18d9536dc335c7caf12eba4",
+  "activated": false,
+  "wechatLiveTested": false
+}

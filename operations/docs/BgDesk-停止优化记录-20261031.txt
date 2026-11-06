@@ -1,0 +1,9 @@
+﻿用户已决定停止继续优化 BgDesk，转向为 Anode 增加操作 Timeline。
+BgDesk 当前保留运行版本 work\bgdesk-taskbar-20261031\publish-001。
+主桌面/子会话 Grok Bot 及后台 agent 保留，没有退出子会话。
+已部署版本的Show经用户确认正常；Hide仍保留任务栏按钮。
+为Hide新增的回归测试返回 VIEWER_HIDE_TASKBAR_STYLE_FAILED；对应修复未继续实施、未部署。
+子会话内应用无法最小化、主子桌面剪贴板问题尚未修复。
+浏览器图层不包括任务栏的问题尚未修改。
+RenderPulse 测试程序仅编译，尚未运行，标记 UNTESTED。
+不把这些未完成项目标为已修复。原文件、构建、备份与凭据均未删除。

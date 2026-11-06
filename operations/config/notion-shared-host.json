@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "executable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Notion\\Notion.exe",
+  "verifiedProductVersion": "7.41.1",
+  "packageSha256": "CB8491991D19008EA2B97644916F0BC24A6EDABC5E1ECDC49AC47FB5DD4198A8",
+  "sharedProfile": "C:\\Users\\Zhang\\AppData\\Roaming\\Notion",
+  "shortcut": "Notion-Shared-In-Anode.lnk",
+  "mode": "same-host-profile-one-session-at-a-time",
+  "evidenceDirectory": "artifacts/notion-multiopen-20261102",
+  "liveVerified": false
+}

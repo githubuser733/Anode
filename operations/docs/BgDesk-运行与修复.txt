@@ -1,0 +1,95 @@
+BgDesk 本机运行与修复记录（2026-10-31）
+
+当前入口
+
+在主桌面打开 launchers\BgDesk-Start-Fixed.lnk。
+该入口按 config\bgdesk-runtime.json 选择当前宿主，并用当前用户的按需计划任务
+把 agent 放进实际 Child Session。任务不保存新密码，没有登录或开机触发器。
+原有 Windows 凭据继续由 BgDesk/child-session 保存在 Windows Credential Manager。
+
+当前宿主：work\bgdesk-viewer-fix-20261031\publish-003\bgdeskw.exe
+参数：host 1920 1080 --external-agent
+后台 agent、CLI 和本次 MCP 客户端沿用已校验的原版 2.0.0，协议兼容。
+--external-agent 是本地修改增加的参数，原版不能据此跳过登录启动项。
+
+查看和接管
+
+托盘提示为“BgDesk (local viewer fix)”。
+Show background desktop：显示并激活原生 RDP 窗口，按所在显示器工作区缩放。
+Hide background desktop：把显示宿主移到屏幕外，继续保持后台绘图，不注销子会话。
+原生窗口用于查看或临时人工输入时，应先暂停 agent。
+浏览器 Agent workplace 的 Take over / Hand back 提供软件内的人工控制保护。
+更新宿主后须刷新已有 Agent workplace 页面，载入新的 app.js 和 viewport.js。
+Timeline 保持原来的实现。本次更换显示宿主时，后台 agent 和 Grok Bot 的 PID 未变。
+
+两处已重现的问题
+
+1. 浏览器固定按 1440x900 换算输入；本机单层工作区实际为 1920x1032。
+   例如应映射到 (960,516) 的中心点，旧算法给出 (720,450)。
+   已改为使用后端 layer.tile 中的实际宽高，并处理留白、缩放和拖动边界。
+2. 原生 SetPeek 仅移动窗口位置，没有显示、还原和激活操作。
+   已加入 Show、从最小化恢复、按当前显示器工作区缩放、置前和焦点处理。
+   显示/隐藏不会再次执行 RDP 连接初始化。
+
+连接失败及启动适配
+
+本地构建首次运行在写 HKCU\Environment\UserInitMprLogonScript 时抛出
+System.UnauthorizedAccessException: Attempted to perform an unauthorized operation.
+诊断记录在 publish-002\viewer-startup-errors.log。
+当前 --external-agent 模式不写入或移除这两个登录启动项，agent 由计划任务启动。
+未更改注册表权限或关闭系统防护。
+
+工具上下文和正常桌面上下文曾读取到不同的旧状态文件及 token。
+因此 Codex 工具中的状态检查通过当前用户计划任务执行；直接读旧 host.json
+不能证明真实宿主已退出。scripts\Verify-BgDeskViewerFix.ps1 应在正常桌面
+PowerShell 中运行，或通过现有项目 ContextProbe 计划任务执行。
+
+已执行的检查
+
+node.exe --test work\bgdesk-viewer-fix-20261031\source\tests\viewport.test.cjs
+结果：tests 6，pass 6，fail 0；包括 3 种画面尺寸、4 种 CSS 缩放下的网格点检查。
+
+使用项目私有 .NET 10 SDK 运行 source\tests\ViewerChecks\ViewerChecks.csproj：
+结果：VIEWER_UI_CHECKS_OK checks=4。
+这个测试不连接真实 RDP，会检查显示、工作区范围、最小化恢复及隐藏后继续可见绘图。
+
+实机 HTTP 校验：host=logged-in，agent=true，app.js / viewport.js 与源文件一致，
+并核对主桌面 Grok Bot、子会话 Grok Bot、后台 agent 三个原进程仍在。
+具体证据见 artifacts\bgdesk-viewer-fix-20261031\runtime-check-*.json。
+真实托盘点击、真人接管鼠标偏移的最终结果仍待用户反馈；不能以自动测试代替。
+新配置的注销后完整冷启动尚未重复测试，本轮保留了现有会话与窗口。
+
+源码和回退材料
+
+原始项目：enwong93-sketch/background-computer-use，v2.0.0，
+commit c25e1bcb0e2b54a0dbe5d881528a50017daaa65f。
+原发布包 SHA256 与 GitHub asset digest 一致，224 个解压文件逐个匹配。
+原版保留在 work\releases\bgdesk-v2.0.0；原源码和下载归档也保留。
+修改源码在 work\bgdesk-viewer-fix-20261031\source。
+publish-001、publish-002 是诊断版本，不应作为日常宿主启动。
+原始启动脚本备份、红/绿测试日志、SDK 校验及源码差异存放在 artifacts 内。
+
+环境与变更范围
+
+本机 Windows 11 26H2；行为依赖具体 Windows、RDP 控件及软件版本。
+私有 .NET 10.0.403 SDK、NuGet 缓存和构建输出均放在项目 work 内。
+.NET 首次运行日志提示生成了 ASP.NET Core HTTPS 开发证书；未执行信任命令，
+BgDesk 的本机 HTTP 页面也不使用此证书。
+调试过程中新增的按需计划任务、旧构建和证据未删除；清理需遵守用户的删除规则。
+
+追加浏览器回归（同日）
+生产 HTML、CSS 和 JavaScript 在独立隐藏 Edge 测试页中加载。
+1280x900、1536x864、1920x1080 三种窗口，0.8/1/1.25/2 四种 CSS 缩放，
+共 108 个坐标点全部匹配，Timeline 在 12 种布局中保留。
+结果：BROWSER_COORDINATE_CHECKS_OK；证据在 browser-check\browser-coordinate-summary.json。
+该测试使用模拟传输和画面，不是实际真人鼠标接管的替代结果。
+
+后续真人反馈与现场复验（2026-10-31）
+原生窗口已由用户确认正常；浏览器随后发现仍在运行旧页面代码。
+已重新载入真实页面并通过9点坐标检查，真人点击复验待反馈。
+详情：docs\BgDesk-浏览器偏移复验-20261031.txt（本文件位于 docs 时，见同目录文件）。
+
+原生任务栏功能（2026-10-31 最新活动版本）
+当前宿主已改为 work\bgdesk-taskbar-20261031\publish-001。
+已加入任务栏按钮及最小化/还原；自动检查通过，真实任务栏及最小化后刷新待验收。
+使用与证据见 docs\BgDesk-任务栏最小化.txt（docs 内见同目录文件）。

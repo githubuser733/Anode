@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "executable": "work/anode-text-20261103/publish-003/anode.exe",
+  "sha256": "28861f60a938f40193c2e51e2870bfd9e4686a9576b0249033a73d7cfa7f39d2",
+  "sourceDirectory": "..",
+  "baselineExecutable": "work/anode-text-20261103/baseline-build/bin/Anode/debug_win-x64/anode.exe",
+  "activeViewerExecutable": "work/anode-text-20261103/publish-001/anode.exe",
+  "evidenceDirectory": "artifacts/anode-text-20261103",
+  "role": "read-only worker launched through existing Anode exec; no viewer/session replacement"
+}

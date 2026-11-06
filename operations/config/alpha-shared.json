@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "application": "Alpha",
+  "version": "0.3.5",
+  "executable": "C:/Users/Zhang/AppData/Local/Programs/Alpha/Alpha.exe",
+  "asar": "C:/Users/Zhang/AppData/Local/Programs/Alpha/resources/app.asar",
+  "asarSha256": "31c7080d1578f4f621ab764fef0404d7396ac8a83dc0a630165e05cffe2812f2",
+  "workingDirectory": "C:/Users/Zhang/AppData/Local/Programs/Alpha",
+  "arguments": [],
+  "sharedUserData": "C:/Users/Zhang/AppData/Roaming/Alpha",
+  "receiptDirectory": "artifacts/alpha-launch",
+  "concurrentWritesVerified": false,
+  "sourceEvidence": "artifacts/alpha-shortcut-20261104-140713-a480b3/source-audit.json"
+}

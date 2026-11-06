@@ -1,0 +1,34 @@
+Anode 文本读取增强 — 2026-11-03
+
+状态：代码、候选包及离线检查已准备；尚未启动候选包、尚未进行微信实测。没有推送 GitHub。
+本地仓库：F:\AI infrastructure\agent-Windows-operation\work\anode-fork
+分支：codex/anode-text-reading
+Timeline 基线：d0dab51
+文本增强提交：34d050080f7a988ea2b6a5f1b6898690d49575ba
+候选包：F:\AI infrastructure\agent-Windows-operation\work\anode-text-20261103\publish-001\anode.exe
+SHA256：9419b119a04848bd323cdc60d0b33fe0ea5db97ea18d9536dc335c7caf12eba4
+
+已添加：可调 name/document 长度上限；字段原始长度/长度下限与完整性；树截断原因；长文本单控件补读；有文本问题时才截图的选项；复制前检查点与复制后来源/更新/竞态校验。
+短文本默认不调用 LLM；本轮没有创建或启动关键词监控任务，也没有发送通知。
+原 Timeline 源码未修改，运行配置未切换。
+
+验证：Release 发布成功；文本专项与现有控件/CLI/协议校验通过；38 项 Timeline、96 项 Activity、41 个 MCP 工具（38 个完全不变，3 个兼容扩展）；43 个文档检查通过；Git 工作区干净。
+完整 selftest --quick 因原测试会永久删除临时文件而未运行，原测试没有改弱或跳过其断言；本轮运行了保留证据的专项检查。
+UNTESTED：微信真实文本；子会话真实复制回读；真实条件截图；启动 Viewer 与 Windows 手动登录。
+实测前提：当前 Anode 已停止；启动候选 Viewer 后须由用户在 Windows 原生界面手动登录，登录完成后再执行验证。
+
+复验（PowerShell）：
+& 'F:\AI infrastructure\agent-Windows-operation\scripts\Test-AnodeText.ps1'
+预期末行附近：ANODE_TEXT_CANDIDATE_OK。每次生成新的证据目录，不删除旧证据。
+
+启动预检（不启动）：
+& 'F:\AI infrastructure\agent-Windows-operation\scripts\Start-AnodeText.ps1' -CheckOnly
+预期 launchPerformed=false；当前无现有主机/子会话时 blocked=false。
+
+用户确认可以打开 Viewer 后的启动入口：
+& 'F:\AI infrastructure\agent-Windows-operation\scripts\Start-AnodeText.ps1'
+脚本先备份旧 state，再启动；不会停止其他主机或注销其他子会话。实际启动路径尚未测试。
+
+源码说明：F:\AI infrastructure\agent-Windows-operation\work\anode-fork\docs\TEXT-READING.md
+验证清单与已解决错误：F:\AI infrastructure\agent-Windows-operation\artifacts\anode-text-20261103\candidate-manifest.json
+运行记录：F:\AI infrastructure\agent-Windows-operation\artifacts\anode-text-20261103\verify-4ca6f2de76ac47b5bcf0653301b8f429

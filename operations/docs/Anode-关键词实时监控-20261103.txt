@@ -1,0 +1,81 @@
+Anode 关键词实时监控：已部署，当前因人工接管停止（2026-11-03，Asia/Shanghai）
+
+当前结果与尚未验证事项
+最新交付状态：检测到人工接管（viewOnly=false），监控已正常停止、租约已释放，任务状态 Ready、退出码 0。可以退出微信；恢复时先登录微信、打开目标群、归还控制，再使用启动入口。已部署文件不依赖微信保持运行。尚有 1 条停止时未发送的状态提示保存在队列中，不是关键词命中。
+已在“美卡101星球-交易群”启用常驻监控：记录全部新增 UIA 文本项；命中 收、出、转、USDT、积分 时发本机桌面通知，并异步保存截图。
+以下运行统计截至 2026-11-03T13:01:22.973Z（人工接管前的快照）。
+真实群最近一段采集平均间隔 0.263 秒，约 3.80 次/秒；间隔 P95 0.302 秒。单次 UIA 读取平均 234.5 ms，P95 276 ms。
+本次正式运行分阶段累计 5756 次读取，生命周期日志未发现 readerError/actionError/cleanupError，已经历 6 个采集工作进程（包含自然轮换和手动停启）。
+期间目标群没有采集到新增文本，所以真实微信“网络到达→桌面提醒”的延迟和实际漏报率仍未测；不能把受控测试窗口的延迟当成微信网络到达延迟。连续多天稳定性仍需继续观察。
+UIA 未暴露、折叠、省略、图片中的文字及极端相同文本连刷不保证完整。当前字段仍不完整时会警告并补读；未接入自动剪贴板恢复，也未对图片执行 OCR。OBS 方案和 CPU/内存开销未做受控对照。
+
+最终文件一致的正常消息验收
+结果：RESIDENT_MONITOR_LIVE_FIXTURE_OK；发布 28，记录 28，关键词命中 26，漏项 0，重复事件 0，进程退出码 0。
+样本包括 3 条相同文本、20 条突发消息及一条 5000 字长文尾部的 USDT。所有样本的完整文本及数量均与独立发布日志逐项比较。
+发布至日志：平均 445.5 ms，P95 539.5 ms。
+发布至桌面通知请求：平均 489.0 ms，P95 560.9 ms，最大 561.5 ms。
+发布至截图保存：平均 813.0 ms，P95 887.5 ms。
+5 个命中批次各保存一张 1920×1080 截图并验证 SHA256；Windows 返回 6 次 shown 回执（包含启动状态通知）。requested/shown 不等于用户已读。
+本轮为自建子会话测试窗口，没有向微信群发送测试消息。验收文件：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-chat-monitor-20261103/resident-1793702170280/controlled-final-001/verification.jsonl
+对应 reader SHA256：9898bdd02c8ac8bc45209fa4846645a1cc52bcea982aacfaf78e991606e82c59
+对应 monitor SHA256：8a0f741801a3f81e9126a742895768f9a5f126cfc7d27fdc3131c266b4d01222
+文件一致性记录：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-chat-monitor-20261103/resident-1793702170280/final-acceptance-result.json
+
+中断恢复验证
+主动取消本测试自己创建的采集工作进程，监督器检测退出并创建第二个工作进程；28 条均补回，26 条命中，零漏项/重复，退出码 0。
+该故障注入样本的通知请求延迟平均 1283.8 ms，P95 3285.6 ms，最大 7273.2 ms。故障期间不承诺秒级。
+较早的心跳超时方案曾出现最大约 17.5 秒延迟；改为等待自己的工作进程退出信号后，故障样本最大约 7.27 秒。
+故障记录：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-chat-monitor-20261103/resident-1793702170280/controlled-fault-003/verification.jsonl
+中断写入恢复、待发送任务恢复、空基线后的第一条消息、暂时空窗口不抹除旧检查点、未知启动不重放均有实际执行的自检。
+
+实现与边界
+通过已有 Anode exec 接口在已验证的子会话内运行常驻读取器；复用消息列表引用，默认每轮读取尾部 6 项。丢失连续锚点时请求最多 500 项补读。
+消息和待执行任务先写入追加日志并 fsync，再进入相互独立的桌面通知、截图队列。短消息匹配不调用 LLM、不读取剪贴板。
+Windows Task Scheduler 按需启动主会话监督器，脱离当前 Codex 进程；没有开机/登录触发器，也不自动登录或启动 Anode。使用已有交互用户，无密码存储。
+同一配置复用已有任务；锁文件和命名互斥量阻止重复采集。任务定义及旧运行目录保留，不自动删除。
+采集进程故障会重试；不确定的启动先按已有任务 ID 恢复，无法确认就停机而不重复启动。人工接管或租约丢失会结束当前运行。Windows 子会话变化后请停止并重新启动入口。
+按同一标题和进程名重新解析应用 PID；标题不唯一或窗口缺失时会发状态警告，不能把“可读取当前界面”当成完整聊天档案。
+崩溃发生在通知显示之后、回执提交之前时可能补发提醒；不承诺严格一次的人类送达。截图按批次保存，可能晚于消息出现；每个运行有 1000 张/1 GiB 的截图预算（达到阈值后停存，最后一张可能越过字节阈值），日志与提醒仍继续。
+旧的失败现场全部保留。早期续租参数不兼容、完成任务退出码处理和并发租约释放问题已修正；未删除或弱化原测试。
+
+当前部署与使用
+任务：Anode-KeywordMonitor-D9BA7D749FAC6EDDF6D4B0DB
+配置：F:/AI infrastructure/agent-Windows-operation/config/anode-keyword-monitor.json
+本地分支：codex/anode-text-reading；提交：5b42191fd02a6153972b4b74741c9b7e21601f4a；未推送 GitHub。
+当前后台使用 Anode 日常 publish-010 host（用户手动恢复为 Session 6），只读工作进程使用 publish-012；未替换 Viewer/host。
+监督器位于父会话 1，UIA 与截图位于子会话 6。Viewer 按用户状态保留，viewOnly=true；没有代理接管主桌面。
+启动：双击 F:/AI infrastructure/agent-Windows-operation/launchers/微信群关键词监控-启动.lnk
+停止：双击 F:/AI infrastructure/agent-Windows-operation/launchers/微信群关键词监控-停止.lnk
+或者运行 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "F:/AI infrastructure/agent-Windows-operation/scripts/Stop-AnodeKeywordMonitor.ps1"
+停止会释放监控租约，保留 Windows、微信与 Viewer。监控运行时持有该 Anode 桌面租约，其他代理需要使用该子会话时先停止监控。
+运行目录：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-keyword-monitor/runs
+当前运行：F:\AI infrastructure\agent-Windows-operation\artifacts\anode-keyword-monitor\runs\run-20261103-205719-411993f5\attempt-41f9886c5db24b848ef6f2600630c885\monitor
+状态：progress.jsonl；逐轮计时：polls.jsonl；消息和提醒任务：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-keyword-monitor/state/wechat-meika101-trading/journal-*.jsonl；截图：各运行目录 screenshots。
+
+可核验清单
+1. 运行 Get-ScheduledTask -TaskName "Anode-KeywordMonitor-D9BA7D749FAC6EDDF6D4B0DB" | Select-Object TaskName,State；监控运行时应见 Running，使用停止入口后应见 Ready。
+2. 打开当前运行的 progress.jsonl，应看到 polls 持续增长；截至本快照 events=0、hits=0，不是漏报率为零的证明。
+3. 打开 controlled-final-001/verification.jsonl，应见 published=28、recorded=28、keywordHits=26、missed=0、duplicateEvents=0、monitorExitCode=0。
+4. 需要停止时运行停止入口，任务最终应为 Ready，LastTaskResult=0；重新启动会复用任务和日志状态。
+5. 离线自检命令：python -B "F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/watch-chat-monitor.py" --self-test --out "F:/AI infrastructure/agent-Windows-operation/artifacts/新的自检目录"；目录必须未存在，预期 RESIDENT_MONITOR_SELF_TEST_OK。
+
+回归检查实际结果
+ANODE_TEXT_CHECKS_OK；RESIDENT_MONITOR_SELF_TEST_OK。
+ANODE_TIMELINE_CHECKS_OK checks=38；ANODE_ACTIVITY_CHECKS_OK checks=96。
+43 份文档与 41 个 MCP 工具名称/链接一致；协议对比 38 个工具未变，3 个既有文本工具为兼容扩展，旧参数保留，6 个非法调用拒绝。
+KEYWORD_MONITOR_LAUNCHER_CHECK_OK；启动、停止、重复启动保护和任务复用均已实机验证；独立短时任务 LastTaskResult=0。
+PROJECT_SETUP_OK；KEYWORD_MONITOR_SHORTCUTS_OK；git diff --check 通过（只有正常 LF/CRLF 提示）。
+未运行会删除临时文件的 selftest --quick；使用保留证据的针对性检查，没有改原测试为跳过或弱化。
+检查日志：F:/AI infrastructure/agent-Windows-operation/artifacts/anode-chat-monitor-20261103/resident-1793702170280/verification-final
+
+源码依据（本次实际读取，当前提交）
+reader：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/src/Anode/Cli/CachedChatReader.cs:91
+journal：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/watch-chat-monitor.py:55
+processWait：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/watch-chat-monitor.py:132
+accept：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/watch-chat-monitor.py:382
+launcher：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/scripts/start-keyword-monitor.ps1:116
+noAutoStart：F:/AI infrastructure/agent-Windows-operation/work/anode-fork/src/Anode/Cli/AgentCommands.cs:88
+
+相关平台文档：UIA 缓存 https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/caching-in-ui-automation-clients
+Windows 进程等待 https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
+Windows 通知回执 https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.notifyicon.balloontipshown?view=windowsdesktop-10.0

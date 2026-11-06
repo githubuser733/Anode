@@ -1,0 +1,6 @@
+work/
+artifacts/
+runtime/
+__pycache__/
+*.pyc
+*.log

@@ -1,0 +1,11 @@
+{
+  "upstreamVersion": "2.0.0",
+  "upstreamCommit": "c25e1bcb0e2b54a0dbe5d881528a50017daaa65f",
+  "hostExecutable": "work/bgdesk-taskbar-20261031/publish-001/bgdeskw.exe",
+  "hostTaskRole": "ViewerTaskbar",
+  "hostArguments": "host 1920 1080 --external-agent",
+  "agentExecutable": "work/releases/bgdesk-v2.0.0/portable/bgdesk/bgdeskw.exe",
+  "cliExecutable": "work/releases/bgdesk-v2.0.0/portable/bgdesk/bgdesk.exe",
+  "patchSource": "work/bgdesk-taskbar-20261031/source",
+  "evidence": "artifacts/bgdesk-taskbar-20261031"
+}

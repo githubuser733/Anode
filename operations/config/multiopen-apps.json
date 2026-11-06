@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "apps": {
+    "grokbot": {
+      "executable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Grok Bot\\Grok Bot.exe",
+      "verifiedProductVersion": "0.78.1.0",
+      "shortcut": "GrokBot-In-Anode.lnk",
+      "mode": "existing-grokbot-launcher"
+    },
+    "trae": {
+      "executable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Trae CN\\Trae CN.exe",
+      "verifiedProductVersion": "3.4.11",
+      "shortcut": "TRAE-CN-In-Anode.lnk",
+      "mode": "independent-runtime-shared-main-business-agent-default",
+      "runtime": "work/multiopen/trae-cn-shared-agent",
+      "sourceProfile": "C:\\Users\\Zhang\\AppData\\Roaming\\Trae CN",
+      "extensions": "C:\\Users\\Zhang\\.trae-cn\\extensions",
+      "seedFiles": ["Local State", "machineid", "User/settings.json", "User/keybindings.json", "User/mcp.json", "User/globalStorage/storage.json"],
+      "seedDatabases": ["User/globalStorage/state.vscdb"],
+      "refreshConfigFiles": ["User/settings.json", "User/keybindings.json", "User/mcp.json"],
+      "settingsOverrides": {"window.startupWindowType": "agent"},
+      "preferredWindowTitle": "Agent",
+      "sharedDirectories": {
+        "profile/ModularData": "C:\\Users\\Zhang\\AppData\\Roaming\\Trae CN\\ModularData",
+        "profile/solo-lite": "C:\\Users\\Zhang\\AppData\\Roaming\\Trae CN\\solo-lite"
+      }
+    },
+    "opencode": {
+      "executable": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\ai.opencode.desktop\\OpenCode.exe",
+      "verifiedProductVersion": "2.2.2.0",
+      "shortcut": "OpenCode-In-Anode.lnk",
+      "mode": "independent-desktop-shared-service-data-config",
+      "runtime": "work/multiopen/opencode",
+      "sourceProfile": "C:\\Users\\Zhang\\AppData\\Roaming\\ai.opencode.desktop",
+      "seedFiles": ["opencode.settings"],
+      "sharedDirectories": {
+        "data/opencode": "C:\\Users\\Zhang\\.local\\share\\opencode",
+        "config/opencode": "C:\\Users\\Zhang\\.config\\opencode",
+        "state/opencode": "C:\\Users\\Zhang\\.local\\state\\opencode"
+      }
+    }
+  }
+}

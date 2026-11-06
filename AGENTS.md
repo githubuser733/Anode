@@ -101,3 +101,7 @@ match. `scripts/test-development.ps1 -VerifyInput` tests an owned browser in the
 including real mouse/keyboard delivery; it requires Node, Chrome and local Playwright.
 `capabilities` reports actual capture and known input blockers. A ready connection or
 successful SendInput call alone does not prove that an application received input.
+
+## 本机双仓库路径
+
+本机工作先读取 `../AGENTS.md` 的用户保护规则及 `LOCAL.md`。上文上游构建示例仍保留；本机 SDK 在 `tools/`，集成工具与活动运行清单在 `operations/`。不得用历史日期目录替代 Git 版本管理，亦不得将运行数据、凭据或日志纳入提交。

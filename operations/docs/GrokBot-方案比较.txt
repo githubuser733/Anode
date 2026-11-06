@@ -1,0 +1,83 @@
+Grok Bot 多开与方案比较（2026-10-31 快照）
+
+当前建议：优先把 Anode 作为日常使用方案，BgDesk 继续作为有本地修复的候选。
+BgDesk 的 Timeline 对操作追溯有明确价值；不因启动和显示问题否定这一优点。
+真人验证本地修复前，不能宣称 BgDesk 的原生接管和浏览器鼠标问题已完全解决。
+
+本机软件与登录复用
+
+目标是本机 Grok Bot 0.78.1：
+C:\Users\Zhang\AppData\Local\Programs\Grok Bot\Grok Bot.exe。
+安装包内源代码实际支持 SAND_USER_DATA_DIR 和 SAND_DATA_ROOT。
+登录状态与 Electron userData 放在一起，不能像 WorkBuddy 一样直接共享运行目录。
+本次为每个方案建立独立 app/data 目录，从现有配置复制 Local State、
+sand-secrets.json 和业务 settings.json；逐文件校验，没有打印令牌或修改主实例。
+这是现有登录状态的一次性复用，后续两份运行状态不做持续双向文件同步。
+各方案持久数据在 work\grokbot-multiopen\anode 和 bgdesk。
+
+Anode 0.11.3 实测
+
+主桌面 Session 1 和 Anode Session 3 的 Grok Bot 同时存活。
+子会话直接进入原账户，能读取原 Bot 列表，新建“Anode 多开验证 20261031”。
+已收到独立助手回复：ANODE_GROKBOT_SHARED_LOGIN_OK。
+关闭子实例后重新打开，登录和该回复保留；主桌面 PID 125896 未改变。
+首轮误用 seat_exec 导致 GUI 随命令任务清理；改用 seat_run 后通过。
+这是测试启动方式的问题，不应算作 Anode 的应用崩溃。
+用户随后确认保存内容并允许结束 Anode 子会话，以切换 BgDesk。
+
+BgDesk 2.0.0 实测
+
+原版 Windows 登录成功，但 agent 自启动未通过；短路径对照也未解决。
+改用指定会话计划任务后，宿主、agent、MCP 连通，Grok Bot 在 Session 6 多开。
+新建“BgDesk 多开验证 20261031”，已收到独立助手回复：
+BGDESK_GROKBOT_SHARED_LOGIN_OK。主桌面实例继续运行。
+浏览器接管和原生 Show 的问题已重现并制作本地修复，详情见 BgDesk-运行与修复.txt。
+连接期间的 QuickLook 等启动项错误也表明，本机启动项抑制没有达到理想状态。
+因转向处理用户反馈，BgDesk 的关闭再开登录保留、真人鼠标接管尚待后续验收。
+用户尚未确认主桌面是否已看见两条新 Bot；共享账户证据目前来自登录种子与子会话。
+
+维护记录快照
+
+Anode 仓库 skulitom/Anode：创建于 2026-09-12，最近 push 为 2026-10-30。
+GitHub API 返回 12 个 release，最新 v0.11.3 发布于 2026-10-18。
+贡献者统计为主维护者 148 次、dependabot 3 次；仍主要依赖一位人类维护者。
+2026-10-01 以来的查询返回 100 个 commit，不把截断结果当作完整总量。
+外部用户的 issue #57，10-18 10:21 UTC 提交，维护者 15:03 UTC 首次回应，
+约 4 小时 42 分；当日 22:50 UTC 关闭。只有一个样本，不能当作修复 SLA。
+代码主分支的后续修复不等于最新发布包已包含这些修复。
+
+BgDesk 仓库 enwong93-sketch/background-computer-use：创建于 2026-10-04，
+最近 push 为 2026-10-17；公开历史只有 1 个 commit、1 个 release（v2.0.0），
+贡献者统计为 1 人，没有 issue 样本可估算响应时间。
+记录少不能证明作者已放弃维护，也不能以“零 issue”推断软件没有 bug。
+
+未来故障和维护判断
+
+无法可靠预测“第几天会出 bug”，也没有足够样本给出可信的维护百分比。
+依据目前可观察的连续更新、发布和外部问题响应，Anode 的维护持续性证据更强。
+BgDesk 的长期维护概率不确定，当前本机还需要额外启动适配与本地源码修复，
+因此用户自身承担的诊断、回归和跟随上游更新的工作更多。
+两者的共同回归触发点包括 Windows/RDP 更新、Grok Bot 更新、登录令牌失效。
+Grok Bot 环境变量和登录文件位置来自当前安装包实现，未来版本可能变化。
+本次只覆盖短时功能测试，没有长期稳定性或 Windows 更新后的故障率数据。
+
+证据位置
+
+artifacts\grokbot-comparison-20261031：源代码摘录、官方 API 快照、启动记录。
+artifacts\mcp\project-mcp-20261031-113941-aec59fe8\anode：Anode 操作记录和图证。
+artifacts\grokbot-comparison-20261031\scheduled-runtime\mcp\bgdesk：BgDesk 操作记录和图证。
+artifacts\bgdesk-viewer-fix-20261031：本地修复源码来源、回归和实机检查。
+其中 Anode shot-0028-002.png、shot-0036-004.png 分别显示回复及重新打开结果；
+BgDesk shot-0021-009.png 显示真实助手回复。用户自己的其他对话没有复制进本文。
+
+参考
+https://github.com/skulitom/Anode
+https://github.com/skulitom/Anode/releases
+https://github.com/skulitom/Anode/issues/57
+https://github.com/enwong93-sketch/background-computer-use
+https://learn.microsoft.com/en-us/windows/win32/termserv/child-sessions
+
+后续真人反馈与现场复验（2026-10-31）
+原生窗口已由用户确认正常；浏览器随后发现仍在运行旧页面代码。
+已重新载入真实页面并通过9点坐标检查，真人点击复验待反馈。
+详情：docs\BgDesk-浏览器偏移复验-20261031.txt（本文件位于 docs 时，见同目录文件）。

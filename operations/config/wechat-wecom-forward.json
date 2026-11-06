@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "cliExecutable": "C:/Users/Zhang/.workbuddy/binaries/node/cli-connector-packages/node_modules/@wecom/cli/node_modules/@wecom/cli-win32-x64/bin/wecom-cli.exe",
+  "cliSha256": "10ec26b4c867945422bbc18604820f534c62814909abfd6f548beb77a628d484",
+  "cliConfigDirectory": "C:/Users/Zhang/.config/wecom",
+  "botName": "狐狸的机器人",
+  "recipient": {"kind": "authorizer", "name": "张虹"},
+  "sources": [
+    {"name": "星创票务 收分群", "id": "44882936563@chatroom"},
+    {"name": "✈️方舟航空✈️壹", "id": "27163116190@chatroom"}
+  ],
+  "keywords": ["收", "UA"],
+  "contentMode": "full-record",
+  "includeExistingHits": true,
+  "pollSeconds": 2,
+  "minimumBatchIntervalSeconds": 60,
+  "maxMarkdownBytes": 12000,
+  "stateDirectory": "artifacts/wechat-wecom/state",
+  "taskName": "AgentWindowsOperation-WeChatWeComForward",
+  "pythonExecutable": "C:/Users/Zhang/AppData/Local/Programs/Python/Python312/python.exe",
+  "pythonwExecutable": "C:/Users/Zhang/AppData/Local/Programs/Python/Python312/pythonw.exe"
+}
