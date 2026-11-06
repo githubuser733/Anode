@@ -125,6 +125,23 @@ contain private information; reports remain local until you choose to share them
 
 ## What the seat is **not** isolated from
 
+### Optional Windows-managed login saving
+
+The default credential dialog does not offer saving. The explicit visible-start option
+`--remember-login` uses a native Windows credential dialog and an Anode-specific Windows
+Credential Manager entry, scoped to the current Windows SID, machine and Anode channel.
+After the user checks Save AND RDP reports completed login, Anode appends a versioned
+credential. Existing entries are not overwritten or deleted. A later start supplies the
+saved identity to the loopback RDP control; Sign in bypasses it to enter a new password.
+Anode handles the password briefly in native memory, clears its own buffers, and never
+exports it through CLI, MCP, config, logs or status. The RDP control owns its internal copy.
+Only enter the password in the native Windows dialog. Local processes running as the same
+Windows user remain inside the same trust boundary. This is not Windows boot autologon and
+does not disable authentication, NLA or credential policies. Failed login does not save or
+automatically retry the password. `status.rememberedLogin` reports saved/reused/save-failed
+without secret data. Manage existing entries in Windows Credential Manager; there is no
+agent-accessible credential export/delete command. Different Windows users do not share it.
+
 Read this list before you point an agent at it.
 
 - **Your user account.** The seat signs in as you. It has your token, your profile, your

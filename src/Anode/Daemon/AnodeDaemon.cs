@@ -188,10 +188,11 @@ internal sealed class AnodeDaemon : IDisposable
             int attempt = Interlocked.Increment(ref _connectionAttempt);
             var options = ConnectOptions(_display) with { PromptForCredentials = _promptForCredentials };
             _window!.SetSeatSize(options.Width, options.Height);
-            _window.Viewer.ConnectToChildSession(options);
+            _window.Viewer.ConnectToChildSession(options,
+                () => !_stopRequested && attempt == _connectionAttempt && !_bringUpCancellation.IsCancellationRequested);
             // During an explicit prompt Windows may retry after a failed credential
             // attempt. Its intermediate event-log failures are not terminal yet.
-            if (!_promptForCredentials)
+            if (!_promptForCredentials || _options.RememberWindowsLogin)
                 _ = MonitorConnectionAsync(started, attempt, _bringUpCancellation.Token);
         }
         catch (Exception ex)
@@ -279,14 +280,18 @@ internal sealed class AnodeDaemon : IDisposable
                 return;
             }
         }
-        if (_promptForCredentials && code is 0 or 1 or 2 or unchecked((int)0xC000006D) or unchecked((int)0xC0000224))
+        if (_window?.Viewer.RememberedLoginRejected == true)
+        {
+            FailStartup("logon-error", $"Saved Windows sign-in failed (code {code}). Click Sign in to enter the current account password. Automatic password retries are disabled.");
+            return;
+        }
+        if ((_promptForCredentials || _options.RememberWindowsLogin) && code is 0 or 1 or 2 or unchecked((int)0xC000006D) or unchecked((int)0xC0000224))
         {
             Log.Warn($"Windows requested another sign-in attempt (code {code})");
             _window?.SetStatus("Windows needs your attention in the sign-in dialog. The seat is not ready yet.");
             return;
         }
-        // The daemon is still running, so `anode start --sign-in` would be refused here.
-        FailStartup("logon-error", $"The seat could not sign in (error {code}). With Windows Hello or a PIN, the user can open the viewer (`anode show` or the tray icon), click Sign in in its header and enter the account password. See {Links.Troubleshooting}#it-asks-for-a-password-every-time");
+        FailStartup("logon-error", $"Windows could not complete the viewer connection (logon event {code}). This does not establish that the saved password is wrong. Inspect the disconnect details; Reconnect makes one new attempt after Windows finishes disconnecting.");
     }
 
     internal void OnViewerDisconnected(int reason)
@@ -312,7 +317,12 @@ internal sealed class AnodeDaemon : IDisposable
                 _hostReady = false;
                 _sessionId = stillThere;
                 DisposeSeatClient();
-                if (failed) Log.Info($"disconnect after startup failure: {why}");
+                if (failed)
+                {
+                    Log.Info($"disconnect after startup failure: {why}");
+                    if (_window?.Viewer.RememberedLoginRejected != true)
+                        SetState("error", $"Windows could not complete the viewer connection. {why} The seat is preserved; no automatic credential retry was made.");
+                }
                 else if (starting) SetState("error", $"The seat could not start. {why}");
                 else
                 {
@@ -416,7 +426,15 @@ internal sealed class AnodeDaemon : IDisposable
                 var screen = DisplayMode.FromJson(pong.Obj("result")?.Obj("screen"));
                 // Measured rather than taken from the options: this is what a reset restores.
                 _startDisplay ??= screen;
-                SetState("ready", $"Seat ready in session {id} at {screen?.ToString() ?? "an unknown size"}. Programs you start here stay out of your way.");
+                string loginNote = _window?.Viewer.RememberedLoginStatus["state"]?.GetValue<string>() switch
+                {
+                    "saved" => " Windows login saved for this account and machine.",
+                    "reused" => " Saved Windows login reused.",
+                    "save-failed" => " Login succeeded, but saving failed. Use Sign in to save again.",
+                    "not-saved" => " One-time login; password was not saved.",
+                    _ => ""
+                };
+                SetState("ready", $"Seat ready in session {id} at {screen?.ToString() ?? "an unknown size"}. Programs you start here stay out of your way." + loginNote);
             }
             Log.Info($"seat ready: session {id}");
         }
@@ -511,7 +529,7 @@ internal sealed class AnodeDaemon : IDisposable
                     }
                     PrepareStart();
                     _reconnecting = true;
-                    _promptForCredentials = promptForCredentials || _options.PromptForCredentials || _seatSignedInWithPassword;
+                    _promptForCredentials = ReconnectNeedsPrompt(promptForCredentials, _options, _seatSignedInWithPassword);
                     cancel = _bringUpCancellation.Token;
                     _hostReady = false;
                     DisposeSeatClient();
@@ -522,13 +540,13 @@ internal sealed class AnodeDaemon : IDisposable
             finally { _seatGate.Release(); }
 
             // Disconnect only the viewer, never log off the existing seat.
+            uint? reconnectSession = _findChild();
             _window?.Viewer.Disconnect();
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-            while (_window?.Viewer.ConnectionState is > 0)
+            if (_window is not null)
             {
-                if (DateTime.UtcNow >= deadline)
-                    throw new TimeoutException("The viewer did not disconnect. Try Sign in or Reconnect again.");
-                await Task.Delay(50, cancel);
+                _window.SetStatus("Waiting for Windows to finish disconnecting; the seat and its apps remain open...");
+                await ReconnectReadiness.WaitAsync(() => Task.FromResult(_window.Viewer.ConnectionState),
+                    () => ReconnectReadiness.ServerDetached(reconnectSession), cancel);
             }
             lock (_lifecycleGate)
             {
@@ -645,7 +663,7 @@ internal sealed class AnodeDaemon : IDisposable
                 if (!_reconnecting)
                 {
                     if (_state is not ("connecting" or "signing-in" or "starting-agent"))
-                        _promptForCredentials = _options.PromptForCredentials;
+                        _promptForCredentials = _options.PromptForCredentials && !_options.RememberWindowsLogin;
                     _hostReady = false;
                     PrepareStart();
                     SetState("connecting", "Creating the seat...");
@@ -946,6 +964,9 @@ internal sealed class AnodeDaemon : IDisposable
         ? _options with { Width = chosen.Width, Height = chosen.Height, ScaleFactor = chosen.Scale }
         : _options;
 
+    internal static bool ReconnectNeedsPrompt(bool explicitSignIn, SeatOptions options, bool passwordSeat) =>
+        explicitSignIn || (!options.RememberWindowsLogin && (options.PromptForCredentials || passwordSeat));
+
     /// <summary>
     /// The seat host's display requests: with no size, the startup display; otherwise a change made live
     /// (method live) or by reconnecting the viewer at the new size (method reconnect). The seat host confirms
@@ -1087,17 +1108,14 @@ internal sealed class AnodeDaemon : IDisposable
     private async Task ConnectViewerAsync(SeatWindow window, DisplayMode display, CancellationToken cancel)
     {
         lock (_lifecycleGate) _displayLogin = null;
+        uint? reconnectSession = _findChild();
         await OnViewerAsync(() => window.Viewer.Disconnect()).ConfigureAwait(false);
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (await OnViewerAsync(() => window.Viewer.ConnectionState).ConfigureAwait(false) > 0)
-        {
-            if (DateTime.UtcNow >= deadline) throw new TimeoutException("The viewer did not disconnect.");
-            await Task.Delay(50, cancel).ConfigureAwait(false);
-        }
+        await ReconnectReadiness.WaitAsync(() => OnViewerAsync(() => window.Viewer.ConnectionState),
+            () => ReconnectReadiness.ServerDetached(reconnectSession), cancel).ConfigureAwait(false);
         var login = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_lifecycleGate) _displayLogin = login;
         // An agent's display change never opens a credential dialog on the user's desktop.
-        var options = ConnectOptions(display) with { PromptForCredentials = false };
+        var options = ConnectOptions(display) with { PromptForCredentials = false, RememberWindowsLogin = false };
         await OnViewerAsync(() =>
         {
             window.SetSeatSize(options.Width, options.Height);
@@ -1133,6 +1151,9 @@ internal sealed class AnodeDaemon : IDisposable
             ["viewerConnection"] = _window?.Viewer.ConnectionState ?? 0,
             ["loginComplete"] = _window?.Viewer.LoginCompleted ?? false,
             ["signInPrompt"] = _promptForCredentials && _state is "connecting" or "signing-in",
+            ["rememberWindowsLogin"] = _options.RememberWindowsLogin,
+            ["rememberedLogin"] = _window?.Viewer.RememberedLoginStatus,
+            ["windowsMayPromptForCredentials"] = (_promptForCredentials || _options.RememberWindowsLogin) && _state is "connecting" or "signing-in",
             ["viewerVisible"] = _window?.Visible ?? false,
             ["viewOnly"] = _window?.ViewOnly ?? true,
             ["pointerGuard"] = PointerGuard.Status(),

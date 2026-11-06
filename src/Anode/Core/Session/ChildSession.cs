@@ -117,6 +117,24 @@ internal static class ChildSession
         return id;
     }
 
+    /// <summary>Require the expected existing session and read its server-side WTS state.</summary>
+    internal static bool IsDisconnected(uint id)
+    {
+        if (!Native.Native.WTSEnumerateSessions(Native.Native.CurrentServer, 0, 1, out var sessions, out uint count))
+            throw Native.Native.LastError("Could not check whether the child session finished disconnecting");
+        try
+        {
+            int size = Marshal.SizeOf<Native.Native.WtsSessionInfo>();
+            for (int i = 0; i < count; i++)
+            {
+                var info = Marshal.PtrToStructure<Native.Native.WtsSessionInfo>(IntPtr.Add(sessions, checked(i * size)));
+                if (info.SessionId == id) return info.State == 4; // WTSDisconnected
+            }
+            throw new InvalidOperationException("The expected child session is no longer present.");
+        }
+        finally { Native.Native.WTSFreeMemory(sessions); }
+    }
+
     /// <summary>Null means enumeration failed, not that the session is absent.</summary>
     internal static bool? Exists(uint id)
     {

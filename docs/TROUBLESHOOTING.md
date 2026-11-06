@@ -135,6 +135,20 @@ interact with the dialog. Stop requests viewer disconnection even if Windows log
 works while the dialog is open: when the dialog keeps Anode's window busy, Anode ends its process
 about 5 seconds after the seat stops.
 
+**Optional Windows-managed saving.** `anode start --remember-login` opens a native Windows
+credential dialog when no Anode login is saved. Check Save there. Only completed RDP login
+commits it to Windows Credential Manager. Anode briefly handles the secret in native memory
+and supplies it directly to the RDP control; it is never a CLI/MCP/config/log parameter.
+`anode status` reports `rememberedLogin.state`: `saved` after successful saving, `reused`
+after automatic reuse, `save-failed` when Windows rejected saving, or `login-failed` when
+authentication failed. A rejected password is not retried automatically: click Sign in
+to enter the current password. Entries are per Windows account, machine and channel;
+older versions are retained and can be managed manually in Windows Credential Manager.
+The default above is unchanged. Live Windows login and ordinary Reconnect still need testing;
+a checkbox, local checks or a saved entry alone do not certify automatic login.
+`--hidden` is refused with this option, and an already running daemon cannot gain the
+option in place. Save work before switching daemons. **Sign in…** remains the repair path.
+
 Microsoft documents the PIN
 limitation for [picture-in-picture child sessions](https://learn.microsoft.com/en-us/power-automate/desktop-flows/run-desktop-flows-pip#limitations-of-child-session-mode).
 

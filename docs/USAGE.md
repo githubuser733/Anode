@@ -108,6 +108,15 @@ This also retries a failed automatic sign-in without restarting Anode or signing
 The tray icon's menu offers the same **Sign in…** while the viewer is hidden.
 Enter your Windows account password in that dialog; Anode does not retrieve or save it.
 
+An explicit `anode start --remember-login` collects the password in a native Windows dialog.
+With Save checked, completed login saves an Anode-specific entry in Windows Credential
+Manager. Anode handles the secret briefly in native memory and supplies it to the RDP control,
+never to CLI, MCP, config or logs. Normal Reconnect and later starts reuse the saved login;
+**Sign in…** forces a fresh prompt to repair it. `status.rememberedLogin.state` reports
+`saved`, `reused`, `not-saved`, `save-failed` or `login-failed`. This requires a visible viewer,
+a new daemon and compatible Windows policy. Verify actual reuse on the machine; a checkbox
+or a saved entry alone does not prove automatic reconnection.
+
 ```powershell
 anode status                 # what the seat is doing
 anode show / anode hide      # the viewer, not the seat
@@ -360,6 +369,7 @@ Change a running seat's resolution and scaling with `anode display` instead.
 | `--control` | Start with your input reaching the seat instead of view only. |
 | `--hidden` | Keep the viewer window closed. |
 | `--sign-in` | Ask Windows for seat credentials without signing you out. Needs a visible viewer, and a running Anode refuses it. |
+| `--remember-login` | Allow Windows credential saving/reuse; only on explicit visible startup. Does not bypass Windows authentication. |
 | `--no-background-rendering` | Leave the per-user RDP rendering preference unchanged. |
 | `--state-dir PATH` | Absolute directory for logs and state when starting a new Anode. |
 | `--keep` | Leave the seat running when Anode exits. |

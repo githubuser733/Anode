@@ -21,10 +21,23 @@ internal sealed class RdpViewer : AxHost
     private ConnectionPointCookie? _cookie;
     private EventSink? _sink;
     private bool _inputEnabled;
+    private readonly RememberedLogin _rememberedLogin;
 
-    public RdpViewer() : base(ControlClsid)
+    public RdpViewer() : this(new RememberedLogin()) { }
+
+    internal RdpViewer(RememberedLogin rememberedLogin) : base(ControlClsid)
     {
+        _rememberedLogin = rememberedLogin;
         Dock = DockStyle.Fill;
+    }
+
+    internal System.Text.Json.Nodes.JsonObject RememberedLoginStatus => _rememberedLogin.Status();
+    internal bool RememberedLoginRejected => RememberedLoginStatus["state"]?.GetValue<string>() == "login-failed";
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _rememberedLogin.Dispose();
+        base.Dispose(disposing);
     }
 
     public event Action? Connecting;
@@ -96,7 +109,7 @@ internal sealed class RdpViewer : AxHost
     }
 
     /// <summary>Applies every setting the seat needs and starts connecting.</summary>
-    public void ConnectToChildSession(SeatOptions options)
+    public void ConnectToChildSession(SeatOptions options, Func<bool>? canContinue = null)
     {
         if (ConnectionState != 0) return;
 
@@ -153,7 +166,13 @@ internal sealed class RdpViewer : AxHost
             throw new InvalidOperationException("The Remote Desktop control did not enable child-session mode.");
         TryExtended(extended, "EnableHardwareMode", true);
 
-        ConfigureCredentialPrompt((IMsRdpCredentialPrompt)control, options.PromptForCredentials);
+        ConfigureLogin(control, options.PromptForCredentials, options.RememberWindowsLogin);
+        if (canContinue?.Invoke() == false)
+        {
+            _rememberedLogin.Failed();
+            ((IMsRdpPasswordWriter)control).SetClearTextPassword(IntPtr.Zero);
+            throw new OperationCanceledException("Sign-in was stopped before connecting.");
+        }
 
         // Set on every connection that names a scale, 100% included: the control keeps an earlier value otherwise.
         if (options.ScaleFactor is int scale)
@@ -164,12 +183,13 @@ internal sealed class RdpViewer : AxHost
 
         // A hidden/disabled RDP control can still move the real pointer. Never connect
         // (including reconnects) unless the isolation gate has been installed successfully.
-        ConnectGuarded(PointerGuard.Install, () =>
+        try { ConnectGuarded(PointerGuard.Install, () =>
         {
             Log.Info($"connecting the viewer to a child session at {options.Width}x{options.Height}"
                 + (options.ScaleFactor is int percent ? $", {percent}% scaling" : ""));
             Dispatch.Call(control, "Connect");
-        });
+        }); }
+        catch { _rememberedLogin.Failed(); throw; }
     }
 
     internal static void ConnectGuarded(Func<bool> installGuard, Action connect)
@@ -178,6 +198,20 @@ internal sealed class RdpViewer : AxHost
             throw new InvalidOperationException("Anode could not protect your desktop pointer. The viewer was not connected. "
                 + "Update Anode and retry; if this continues, see " + Links.Troubleshooting + "#my-real-pointer-jumps-while-something-runs-in-the-seat");
         connect();
+    }
+
+    internal void ConfigureLogin(object control, bool force, bool remember)
+    {
+        // The legacy RDP checkbox is not proof of persistence. In opt-in mode,
+        // our native Windows prompt + Credential Manager own that lifecycle.
+        ConfigureCredentialPrompt((IMsRdpCredentialPrompt)control, remember ? false : force);
+        using var credential = _rememberedLogin.Prepare(remember, force, IsHandleCreated ? Handle : IntPtr.Zero);
+        if (credential is null) return;
+        string name = credential.UserName;
+        int slash = name.IndexOf('\\');
+        Dispatch.Set(control, "Domain", slash >= 0 ? name[..slash] : "");
+        Dispatch.Set(control, "UserName", slash >= 0 ? name[(slash + 1)..] : name);
+        ((IMsRdpPasswordWriter)control).SetClearTextPassword(credential.Password);
     }
 
     internal string? DescribeDisconnect(int reason)
@@ -212,13 +246,15 @@ internal sealed class RdpViewer : AxHost
         Dispatch.Call(Ocx, "UpdateSessionDisplaySettings", (uint)display.Width, (uint)display.Height, width, height, 0u, (uint)display.Scale, 100u);
     }
 
-    internal static void ConfigureCredentialPrompt(IMsRdpCredentialPrompt prompt, bool enabled)
+    internal static void ConfigureCredentialPrompt(IMsRdpCredentialPrompt prompt, bool enabled, bool rememberWindowsLogin = false)
     {
         // Unattended starts must not open authentication dialogs on the parent
-        // desktop. Only --sign-in or the viewer's Sign in action enables the prompt.
+        // desktop. Only explicit visible --sign-in/--remember-login or Sign in permits it.
         // Never retrieve the password or pass it through CLI, pipes, or logs.
-        prompt.SetAllowCredentialSaving(false);
-        prompt.SetAllowPromptingForCredentials(enabled);
+        // Explicit opt-in only: Windows owns the dialog, storage and credential reuse.
+        // Allow prompting when needed without forcing a fresh prompt over saved credentials.
+        prompt.SetAllowCredentialSaving(rememberWindowsLogin);
+        prompt.SetAllowPromptingForCredentials(enabled || rememberWindowsLogin);
         prompt.SetPromptForCredsOnClient(enabled);
         prompt.SetPromptForCredentials(enabled);
     }
@@ -268,11 +304,13 @@ internal sealed class RdpViewer : AxHost
         public void OnConnected() => _owner.Connected?.Invoke();
         public void OnLoginComplete()
         {
+            _owner._rememberedLogin.LoginComplete();
             _owner.LoginCompleted = true;
             _owner.LoginComplete?.Invoke();
         }
         public void OnDisconnected(int discReason)
         {
+            _owner._rememberedLogin.Failed();
             _owner.LoginCompleted = false;
             _owner.Disconnected?.Invoke(discReason);
         }
@@ -281,7 +319,11 @@ internal sealed class RdpViewer : AxHost
         public void OnChannelReceivedData(string channelName, string data) { }
         public void OnRequestGoFullScreen() { }
         public void OnRequestLeaveFullScreen() { }
-        public void OnFatalError(int errorCode) => _owner.FatalError?.Invoke(errorCode);
+        public void OnFatalError(int errorCode)
+        {
+            _owner._rememberedLogin.Failed();
+            _owner.FatalError?.Invoke(errorCode);
+        }
         public void OnWarning(int warningCode) => Log.Warn($"Remote Desktop warning {warningCode}");
         public void OnRemoteDesktopSizeChange(int width, int height) => _owner.RemoteSizeChanged?.Invoke(width, height);
         public void OnIdleTimeoutNotification() { }
@@ -293,7 +335,15 @@ internal sealed class RdpViewer : AxHost
         public void OnAuthenticationWarningDismissed() { }
         public void OnRemoteProgramResult(string remoteProgramName, int result, bool displayErrorDialog) { }
         public void OnRemoteProgramDisplayed(bool displayed, uint exeStyle) { }
-        public void OnLogonError(int errorCode) => _owner.LogonError?.Invoke(errorCode);
+        public void OnLogonError(int errorCode)
+        {
+            // -1 is access denied, not proof of an invalid password. Windows can
+            // authenticate successfully and then reject session/licensing setup.
+            if (errorCode is not (-2 or -4 or -5 or 3))
+                _owner._rememberedLogin.Failed(credentialsRejected: errorCode is 0 or 1
+                    or unchecked((int)0xC000006D) or unchecked((int)0xC0000224));
+            _owner.LogonError?.Invoke(errorCode);
+        }
         public void OnFocusReleased(int direction) { }
         public void OnUserNameAcquired(string userName) { }
         public void OnMouseInputModeChanged(bool absoluteMouseMode) { }
@@ -327,5 +377,6 @@ internal sealed record SeatOptions
     public bool ShowWindow { get; init; } = true;
     public bool KeepSeatOnExit { get; init; }
     public bool PromptForCredentials { get; init; }
+    public bool RememberWindowsLogin { get; init; }
     public bool ConfigureBackgroundRendering { get; init; } = true;
 }

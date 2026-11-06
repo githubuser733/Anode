@@ -27,6 +27,16 @@ internal interface IMsRdpExtendedSettings
     object GetProperty([MarshalAs(UnmanagedType.BStr)] string propertyName);
 }
 
+// First IMsTscNonScriptable method: put_ClearTextPassword(BSTR).
+// An explicit BSTR pointer avoids copying the password into an immutable managed string.
+[ComImport]
+[Guid("C1E6743A-41C1-4A74-832A-0DD06C1C7A0E")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IMsRdpPasswordWriter
+{
+    void SetClearTextPassword(IntPtr bstr);
+}
+
 /// <summary>Only the credential-prompt properties of the immutable NS5 vtable.</summary>
 [ComImport]
 [Guid("4F6996D5-D7B1-412C-B0FF-063718566907")]

@@ -78,6 +78,12 @@ internal static partial class Cli
                 return TimelineChecks.Run(rest);
             case "__text-check":
                 return TextReadingChecks.Run();
+            case "__remember-login-check":
+                return RememberLoginChecks.Run();
+            case "__remember-reconnect-probe":
+                return RememberReconnectProbe.Run(rest);
+            case "__activity-preview-check":
+                return ActivityPreviewChecks.Run(rest);
             case "__chat-read":
                 return ChatTextReader.Run(rest);
             case "__chat-notify":
@@ -366,6 +372,7 @@ internal static partial class Cli
             ShowWindow = !options.Flag("hidden"),
             KeepSeatOnExit = options.Flag("keep"),
             PromptForCredentials = options.Flag("sign-in"),
+            RememberWindowsLogin = options.Flag("remember-login"),
             ConfigureBackgroundRendering = !options.Flag("no-background-rendering")
         };
         return AnodeDaemon.Run(seat);
@@ -381,6 +388,11 @@ internal static partial class Cli
                 if (options.Flag("sign-in"))
                 {
                     Console.Error.WriteLine("Anode is already running. Open its viewer from the tray icon or with `anode show`, then click Sign in in the header.");
+                    return 2;
+                }
+                if (options.Flag("remember-login") && (await RequestAsync(already, "status")).Obj("result")?.Bool("rememberWindowsLogin") != true)
+                {
+                    Console.Error.WriteLine("The running Anode did not enable Windows remember-login. Save the seat's work before switching to a new daemon with --remember-login.");
                     return 2;
                 }
                 if (options.Value("width") is not null || options.Value("height") is not null || options.Value("scale") is not null)
@@ -808,7 +820,7 @@ internal static partial class Cli
         string? Notes, int Words, string[]? Options);
 
     private const string SeatOptionList =
-        "hidden width# height# scale# no-scaling audio clipboard winkeys control sign-in no-background-rendering state-dir= keep";
+        "hidden width# height# scale# no-scaling audio clipboard winkeys control sign-in remember-login no-background-rendering state-dir= keep";
 
     private static CommandHelp Row(string group, string names, string? options, int words, string? notes,
         params (string Usage, string Text)[] lines) =>
@@ -1036,6 +1048,7 @@ internal static partial class Cli
         ("--winkeys", "send Windows-key shortcuts to the seat, not to you"),
         ("--control", "start with your input reaching the seat"),
         ("--sign-in", "ask Windows for seat credentials without signing you out"),
+        ("--remember-login", "let Windows save/reuse the seat login; may prompt, visible viewer only"),
         ("--no-background-rendering", "leave the per-user RDP rendering preference unchanged"),
         ("--state-dir PATH", "absolute directory for logs when starting a new daemon"),
         ("--keep", "leave the seat running when Anode exits")
@@ -1239,6 +1252,8 @@ internal static partial class Cli
                 throw new UsageException("--fps accepts only 60.");
             case "start" or "up" when options.Flag("sign-in") && options.Flag("hidden"):
                 throw new UsageException("--sign-in requires a visible viewer; remove --hidden.");
+            case "start" or "up" when options.Flag("remember-login") && options.Flag("hidden"):
+                throw new UsageException("--remember-login may open Windows sign-in; remove --hidden.");
             case "control" when words.Count == 1 && words[0].ToLowerInvariant() is not ("take" or "give"):
                 throw new UsageException($"control takes take or give, not '{words[0]}'.");
             case "click" when words.Count == 1 || !words.All(IsInteger):

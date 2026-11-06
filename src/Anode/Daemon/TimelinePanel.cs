@@ -25,6 +25,7 @@ internal sealed class TimelinePanel : UserControl
     private readonly PictureBox _preview = new() { Dock = DockStyle.Bottom, Height = 88, SizeMode = PictureBoxSizeMode.Zoom, Visible = false, Cursor = Cursors.Hand, AccessibleName = "点击放大截图" };
     private readonly Label _footer = new() { Dock = DockStyle.Bottom, Height = 42, AutoEllipsis = true };
     private OperationTimeline? _timeline;
+    private ActivityImagePreview? _imageWindow;
     private TimelineCaptureScheduler? _capture;
     private string? _previewKey;
     private OperationTimeline? _previewTimeline;
@@ -125,6 +126,8 @@ internal sealed class TimelinePanel : UserControl
 
     internal void Bind(OperationTimeline timeline, TimelineCaptureScheduler? capture = null)
     {
+        _imageWindow?.Close();
+        _imageWindow = null;
         if (_timeline is not null) _timeline.Changed -= OnChanged;
         _timeline = timeline;
         _capture = capture;
@@ -302,16 +305,48 @@ internal sealed class TimelinePanel : UserControl
 
     private void OpenPreview()
     {
-        if (_rows.SelectedItems.Count == 0 || _rows.SelectedItems[0].Tag is not TimelineEntry entry || _timeline?.ScreenshotPath(entry) is not { } path) return;
-        try { new ActivityImagePreview(path).Show(FindForm()); }
+        if (_rows.SelectedItems.Count == 0 || _rows.SelectedItems[0].Tag is not TimelineEntry entry || _timeline?.ScreenshotPath(entry) is null) return;
+        try
+        {
+            if (_imageWindow is null || _imageWindow.IsDisposed)
+            {
+                var window = new ActivityImagePreview(PreviewItems, entry.Id, SelectPreviewEntry);
+                _imageWindow = window;
+                window.FormClosed += (_, _) => { if (ReferenceEquals(_imageWindow, window)) _imageWindow = null; };
+                window.Show(FindForm());
+            }
+            else
+            {
+                _imageWindow.OpenImage(entry.Id);
+                if (_imageWindow.WindowState == FormWindowState.Minimized) _imageWindow.WindowState = FormWindowState.Normal;
+                _imageWindow.Activate();
+            }
+        }
         catch (Exception ex) { MessageBox.Show(this, "图片预览不可用：" + ex.Message, "Activity", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    private IReadOnlyList<ActivityPreviewItem> PreviewItems()
+    {
+        if (_timeline is null || IsDisposed || Disposing) return [];
+        var items = new List<ActivityPreviewItem>();
+        foreach (ListViewItem row in _rows.Items)
+            if (row.Tag is TimelineEntry entry && _timeline.ScreenshotPath(entry) is { } path)
+                items.Add(new(entry.Id, path));
+        return items;
+    }
+
+    private void SelectPreviewEntry(string id)
+    {
+        if (!_rowById.TryGetValue(id, out var row) || row.ListView != _rows) return;
+        row.Selected = true;
+        row.EnsureVisible();
     }
 
     private void ShowEntry()
     {
         var entry = _rows.SelectedItems.Count > 0 ? _rows.SelectedItems[0].Tag as TimelineEntry : null;
         _detail.Text = entry is null ? "选择记录查看详情；点击缩略图或双击有图记录可放大。"
-            : $"{entry.ActorName} · {entry.Operation} {entry.Action}\r\n{entry.Outcome} · {entry.ElapsedMs} ms · {(entry.Source is null ? "现场记录" : "导入记录（不执行）")}\r\n{entry.At.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff} · 留图: {entry.CaptureStatus ?? "无"}" + (entry.CapturedAt is { } at ? $" @ {at.ToLocalTime():HH:mm:ss.fff}" : "") + (entry.Screenshot is null ? "" : "\r\n点击下方缩略图放大；预览窗口支持缩放。");
+            : $"{entry.ActorName} · {entry.Operation} {entry.Action}\r\n{entry.Outcome} · {entry.ElapsedMs} ms · {(entry.Source is null ? "现场记录" : "导入记录（不执行）")}\r\n{entry.At.ToLocalTime():yyyy-MM-dd HH:mm:ss.fff} · 留图: {entry.CaptureStatus ?? "无"}" + (entry.CapturedAt is { } at ? $" @ {at.ToLocalTime():HH:mm:ss.fff}" : "") + (entry.Screenshot is null ? "" : "\r\n点击下方缩略图放大；预览可用左右键切换并缩放。");
         string? key = entry?.Screenshot is null ? null : entry.Id + "\0" + entry.ScreenshotDirectory + "\0" + entry.Screenshot;
         if (key == _previewKey && ReferenceEquals(_previewTimeline, _timeline) && _preview.Image is not null)
         {
@@ -376,6 +411,8 @@ internal sealed class TimelinePanel : UserControl
     {
         if (disposing)
         {
+            _imageWindow?.Close();
+            _imageWindow = null;
             if (_timeline is not null) _timeline.Changed -= OnChanged;
             _previewRequest = null;
             _preview.Image?.Dispose();
