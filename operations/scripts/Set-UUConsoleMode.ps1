@@ -1,19 +1,22 @@
 #requires -Version 5.1
-<# Daily entry for the version-pinned UU console workaround. No startup task is installed. #>
+<# Daily entry. Ordinary callers use a fixed, pre-installed task; no daily UAC. #>
 [CmdletBinding()]
 param(
     [ValidateSet('Status','Enable','Restore')][string]$Action = 'Status',
-    [ValidatePattern('^[0-9a-f]{32}$')][string]$OperationId = ([Guid]::NewGuid().ToString('N'))
+    [ValidatePattern('^[0-9a-f]{32}$')][string]$OperationId = ([Guid]::NewGuid().ToString('N')),
+    [string]$EvidenceRoot
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$evidenceRoot = Join-Path $projectRoot 'artifacts\uu-session-investigation-20261103'
+if (-not $EvidenceRoot) { $EvidenceRoot = Join-Path $projectRoot 'artifacts\uu-session-investigation-20261103' }
+[void][IO.Directory]::CreateDirectory($EvidenceRoot)
+Import-Module (Join-Path $PSScriptRoot 'UUConsoleTask.psm1') -Force
 $receiptPath = Join-Path $evidenceRoot ('mode-' + $OperationId + '.json')
 $trialScript = Join-Path $PSScriptRoot 'Invoke-UUConsoleTrial.ps1'
 $runnerScript = Join-Path $PSScriptRoot 'Start-UUConsoleTrial.ps1'
 
 function Inspect-Binding {
-    $output = & $trialScript -Mode Inspect
+    $output = & $trialScript -Mode Inspect -EvidenceRoot $evidenceRoot
     if ($LASTEXITCODE -ne 0) { throw 'UU inspection failed.' }
     return (($output -join [Environment]::NewLine) | ConvertFrom-Json)
 }
@@ -46,25 +49,29 @@ function Save-Receipt($Value) {
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin = ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if ($Action -ne 'Status' -and -not $isAdmin) {
-    $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -Action ' + $Action + ' -OperationId ' + $OperationId
-    $helper = Start-Process powershell.exe -ArgumentList $arguments -WorkingDirectory $projectRoot -Verb RunAs -WindowStyle Hidden -PassThru
-    $helper.WaitForExit()
-    if (Test-Path -LiteralPath $receiptPath) { Get-Content -LiteralPath $receiptPath -Raw }
-    else { throw ('Administrator helper returned without a receipt; exit=' + $helper.ExitCode) }
-    exit $helper.ExitCode
-}
-
 try {
     $inspection = Inspect-Binding
-    $profile = Get-KeptProfile
     if ($Action -eq 'Status') {
+        $profile = Get-KeptProfile
         Save-Receipt ([ordered]@{ action=$Action; success=$true; observedAtUtc=[DateTime]::UtcNow.ToString('o'); binding=$inspection; keptTrialRunId=$(if ($profile) { $profile.runId } else { $null }) })
         exit 0
     }
+    if ($Action -eq 'Enable' -and (Test-UUConsoleBinding $inspection)) {
+        Save-Receipt ([ordered]@{ action=$Action; success=$true; noChangeNeeded=$true; callerIsAdministrator=$isAdmin; binding=$inspection; note='Both workers are already in the physical console. No service control, process restart or elevation was requested.' })
+        exit 0
+    }
+    if (-not $inspection.serviceHashMatchesInspectedCode) { throw 'UU service version has not been inspected; no controls sent. Status remains available.' }
+    if (-not $isAdmin) {
+        $result=Invoke-UUConsoleRegisteredTask -Action $Action
+        $result | Add-Member NoteProperty requestedVia 'FixedScheduledTask' -Force
+        $result | Add-Member NoteProperty callerIsAdministrator $false -Force
+        Save-Receipt $result
+        exit 0
+    }
+    $profile = Get-KeptProfile
     if ($Action -eq 'Restore') {
         if ($profile) {
-            & $trialScript -Mode Restore -RunId $profile.runId | Out-Null
+            & $trialScript -Mode Restore -RunId $profile.runId -EvidenceRoot $evidenceRoot | Out-Null
             if ($LASTEXITCODE -ne 0) { throw 'UU runtime restoration reported failure; inspect restore evidence.' }
         }
         Save-Receipt ([ordered]@{ action=$Action; success=$true; finishedAtUtc=[DateTime]::UtcNow.ToString('o'); restoredTrialRunId=$(if ($profile) { $profile.runId } else { $null }); binding=(Inspect-Binding) })
@@ -84,12 +91,12 @@ try {
         exit 0
     }
     if ($profile) {
-        & $trialScript -Mode Restore -RunId $profile.runId | Out-Null
+        & $trialScript -Mode Restore -RunId $profile.runId -EvidenceRoot $evidenceRoot | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Could not restore the previous runtime before reapplying.' }
     }
     $runId = [Guid]::NewGuid().ToString('N')
     $runPath = Join-Path $evidenceRoot ('console-trial-' + $runId)
-    $runnerArgs = '-NoProfile -ExecutionPolicy Bypass -File "' + $runnerScript + '" -Mode Apply -RunId ' + $runId
+    $runnerArgs = '-NoProfile -ExecutionPolicy Bypass -File "' + $runnerScript + '" -Mode Apply -RunId ' + $runId + ' -EvidenceRoot "' + $evidenceRoot + '"'
     $runner = Start-Process powershell.exe -ArgumentList $runnerArgs -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(90)
     do {

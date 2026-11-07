@@ -107,3 +107,11 @@ successful SendInput call alone does not prove that an application received inpu
 本机工作先读取 `../AGENTS.md` 的用户保护规则及 `LOCAL.md`。上文上游构建示例仍保留；本机 SDK 在 `tools/`，集成工具与活动运行清单在 `operations/`。不得用历史日期目录替代 Git 版本管理，亦不得将运行数据、凭据或日志纳入提交。
 
 人工日常启动只使用仓库根目录 `Anode.lnk`，复用活动清单及已运行实例。配套入口归类在 `operations/launchers/apps`、`monitoring`、`maintenance`；不要重新创建并列的 Start/Show/Hide/Timeline/MCP 主入口。`Initialize-ProjectLaunchers.ps1 -CheckOnly` 核验当前清单；`Consolidate-ProjectEntries.ps1` 是已执行的一次性迁移，不用作日常启动或版本发布。
+
+## UU 日常免提权（2026-11-07）
+
+原 `operations/launchers/maintenance/UU-Console-Enable.cmd` 已改为普通权限入口；完整绑定时不重启 worker，需要重绑时请求已安装的固定 SYSTEM 任务。Enable/Restore-v1 两任务只按需运行，没有开机/登录/定时触发器。不要恢复日常 `Start-Process -Verb RunAs`，也不要关闭 UAC 或放宽原服务权限。首次安装已成功，不重复触发 UAC。
+
+固定副本 `operations/work/uu-console-task-v1/scripts/` 与任务输出目录由管理员控制；任务启动时锁定并核对依赖哈希。源脚本更新不能直接覆盖部署副本或原任务，需另做明确的部署升级。当前只读核对过 UU 4.46.0.4716 的控制分支；写操作继续保留版本门禁。
+
+本轮普通 CMD 和普通令牌请求 SYSTEM Enable 均成功，当前正确绑定时为 noChangeNeeded=true；13 项行为检查与项目检查通过，UU/Anode 原进程保持。三个 CMD 还在自己的子进程隔离 PowerShell 7 模块路径污染，不修改父进程或系统环境。新版真实错绑后的 Apply/Restore、远端重连键鼠和电脑重启仍为 UNTESTED，不能把任务退出 0 当作远控已验收。说明与复核命令：`operations/docs/UU-日常免管理员启动-20261107.md`；证据：`operations/artifacts/uu-console-nonadmin-20261107-7a280d75/`。

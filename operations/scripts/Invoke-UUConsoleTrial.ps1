@@ -1,6 +1,6 @@
 #requires -Version 5.1
 <#
-Version-pinned, reversible runtime trial for UU 4.45.0.4318.
+Version-pinned, reversible runtime trial for inspected UU 4.45/4.46 builds.
 Inspect is read-only. Apply pauses the verified service supervision control,
 launches the unchanged installed workers in the physical console, and waits
 up to five minutes for a keep-runtime.txt marker. Otherwise it restores UU.
@@ -10,17 +10,23 @@ process is changed. Remote behavior and recovery paths require live testing.
 [CmdletBinding()]
 param(
     [ValidateSet('Inspect', 'Apply', 'Restore')][string]$Mode = 'Inspect',
-    [ValidatePattern('^[0-9a-f]{32}$')][string]$RunId = ([Guid]::NewGuid().ToString('N'))
+    [ValidatePattern('^[0-9a-f]{32}$')][string]$RunId = ([Guid]::NewGuid().ToString('N')),
+    [string]$EvidenceRoot
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$evidenceRoot = Join-Path (Join-Path $projectRoot 'artifacts') 'uu-session-investigation-20261103'
+if (-not $EvidenceRoot) { $EvidenceRoot = Join-Path (Join-Path $projectRoot 'artifacts') 'uu-session-investigation-20261103' }
 $runPath = Join-Path $evidenceRoot ('console-trial-' + $RunId)
 $serviceName = 'GameViewerService'
 $installRoot = 'C:\Program Files\Netease\GameViewer'
 $bin = Join-Path $installRoot 'bin'
 $serviceExe = Join-Path $installRoot 'GameViewerService.exe'
-$expectedServiceHash = '708fcc3a953aa7952cdf6c59a793314618636aaffdc8b2b3e0979c2b6a0e97e6'
+$inspectedServiceHashes = @(
+    '708fcc3a953aa7952cdf6c59a793314618636aaffdc8b2b3e0979c2b6a0e97e6', # 4.45.0.4318
+    '23f67859b7ac897198cf4824c885a94cfb81120229e1e16fe7865b286b431366'  # 4.46.0.4716; control map re-inspected 2026-11-07
+)
+$expectedServiceHash = (Get-FileHash -LiteralPath $serviceExe -Algorithm SHA256).Hash.ToLowerInvariant()
+$serviceHashMatches = $inspectedServiceHashes -contains $expectedServiceHash
 $psExec = Join-Path $bin 'PsExec64.exe'
 $workerNames = @('GameViewerServer.exe', 'GameViewerHealthd.exe')
 # Verified in this exact executable's switch table and control handler:
@@ -59,12 +65,16 @@ function Write-NewJson([string]$Path, $Value) {
     $null = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 function Write-Step([string]$Message) {
-    [IO.File]::AppendAllText((Join-Path $runPath 'journal.log'), ([DateTime]::UtcNow.ToString('o') + ' ' + $Message + [Environment]::NewLine))
+    # Immutable records cannot follow an existing journal file to an overwrite target.
+    ([DateTime]::UtcNow.ToString('o') + ' ' + $Message) | Out-File -LiteralPath (Join-Path $runPath ('step-'+[Guid]::NewGuid().ToString('N')+'.txt')) -Encoding UTF8 -NoClobber
 }
 function Restore-Runtime($OwnedWorkers) {
     $restoreErrors = @()
     foreach ($owned in @($OwnedWorkers)) {
         try {
+            if ($workerNames -notcontains $owned.name -or $owned.executablePath -ine (Join-Path $bin $owned.name)) {
+                throw 'Restore record is outside the two allowed UU worker paths.'
+            }
             $current = Get-CimInstance Win32_Process -Filter ('ProcessId=' + [int]$owned.processId)
             if ($null -eq $current) { continue }
             if ($current.ExecutablePath -ne $owned.executablePath -or
@@ -98,9 +108,6 @@ function Restore-Runtime($OwnedWorkers) {
     return [pscustomobject]@{ succeeded = ($restoreErrors.Count -eq 0); errors = $restoreErrors; workers = @((Get-Workers) | ForEach-Object { Get-WorkerRecord $_ }) }
 }
 
-if ((Get-FileHash -LiteralPath $serviceExe -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedServiceHash) {
-    throw 'UU service binary differs from the inspected version; no controls sent.'
-}
 $serviceInfo = Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
 if ($serviceInfo.PathName -ne ('"' + $serviceExe + '" --service')) { throw 'Unexpected UU service image path.' }
 $consoleSession = [UUConsoleTrialNative]::WTSGetActiveConsoleSessionId()
@@ -116,15 +123,20 @@ if ($signature.Status -ne [Management.Automation.SignatureStatus]::Valid -or $si
 if ($Mode -eq 'Inspect') {
     [ordered]@{
         preflight = 'PASS - read-only'
-        serviceHashMatchesInspectedCode = $true
+        serviceHashMatchesInspectedCode = $serviceHashMatches
+        serviceSha256 = $expectedServiceHash
+        serviceVersion = (Get-Item -LiteralPath $serviceExe).VersionInfo.FileVersion
         isAdministrator = $isAdmin
         physicalConsoleSessionId = $consoleSession
         workers = @($workersBefore | ForEach-Object { Get-WorkerRecord $_ })
-        bindingPass = (@($workersBefore | Where-Object { $_.Name -eq 'GameViewerServer.exe' -and $_.SessionId -eq $consoleSession }).Count -eq 1)
+        bindingPass = ($workersBefore.Count -eq 2 -and
+            @($workersBefore | Where-Object { $_.Name -eq 'GameViewerServer.exe' -and $_.SessionId -eq $consoleSession }).Count -eq 1 -and
+            @($workersBefore | Where-Object { $_.Name -eq 'GameViewerHealthd.exe' -and $_.SessionId -eq $consoleSession }).Count -eq 1)
         inspectionScope = 'Read-only; execution outcomes are in per-run result, restore, and user-verdict files.'
     } | ConvertTo-Json -Depth 6
     exit 0
 }
+if (-not $serviceHashMatches) { throw 'UU service binary differs from the inspected versions; no controls sent.' }
 if (-not $isAdmin) { throw 'Apply and Restore require an elevated Windows PowerShell process.' }
 if ($Mode -eq 'Restore') {
     $readyPath = Join-Path $runPath 'ready.json'

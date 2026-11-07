@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "payloadRoot": "work/uu-console-task-v1",
+  "evidenceRoot": "artifacts/uu-console-task-v1",
+  "taskNames": {
+    "Enable": "AgentWindowsOperation-UUConsole-Enable-v1",
+    "Restore": "AgentWindowsOperation-UUConsole-Restore-v1"
+  },
+  "automaticTriggers": false
+}
