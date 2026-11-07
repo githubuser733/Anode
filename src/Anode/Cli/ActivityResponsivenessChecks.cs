@@ -77,6 +77,21 @@ internal static class ActivityResponsivenessChecks
         PumpUntil(() => preview.Image is not null);
         Check(preview.Image!.Width <= 720 && preview.Image.Height <= 400, "Preview did not preserve the bounded thumbnail size.");
 
+        // Preview decoding awaits background work; its continuation must return to this UI thread.
+        int uiThread = Environment.CurrentManagedThreadId;
+        var continueOnUi = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<int> ResumedThreadAsync()
+        {
+            await continueOnUi.Task;
+            return Environment.CurrentManagedThreadId;
+        }
+        var resumedThread = ResumedThreadAsync();
+        continueOnUi.SetResult(true);
+        PumpUntil(() => resumedThread.IsCompleted);
+        int continuationThread = resumedThread.GetAwaiter().GetResult();
+        Check(continuationThread == uiThread,
+            "ACTIVITY_UI_CONTEXT_LOST: background work resumed outside the fixture UI thread.");
+
         var imageRows = rows.Items.Cast<ListViewItem>().Where(r => ((TimelineEntry)r.Tag!).Screenshot is not null).ToArray();
         for (int i = 0; i < 30; i++)
         {
@@ -146,7 +161,7 @@ internal static class ActivityResponsivenessChecks
         }
         finally { Application.ThreadException -= onThreadException; }
         using var report = new FileStream(Path.Combine(root, "activity-responsiveness-result.json"), FileMode.CreateNew);
-        JsonSerializer.Serialize(report, new { checks, failures, visibleRows = rows.Items.Count,
+        JsonSerializer.Serialize(report, new { checks, failures, visibleRows = rows.Items.Count, uiThread, continuationThread,
             refreshMedianMs = samples[samples.Count / 2], refreshP95Ms = samples[(int)(samples.Count * .95)], inputSent = false, liveSeatStarted = false });
         if (failures.Count != 0) throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
         return checks;

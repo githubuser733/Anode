@@ -28,12 +28,22 @@ internal static class TimelineChecks
                 throw new ArgumentException("Evidence directory must be absolute and new; existing files were left unchanged.");
             Directory.CreateDirectory(root);
             if (args.Contains("--capture-probe")) return ActivityChecks.ProbeAsync(root).GetAwaiter().GetResult();
+            if (args.Contains("--responsiveness-only"))
+            {
+                Application.EnableVisualStyles();
+                int checks = RunUiChecks(() => ActivityResponsivenessChecks.Run(root));
+                Console.WriteLine($"ANODE_ACTIVITY_RESPONSIVENESS_OK checks={checks} inputSent=false liveSeatStarted=false");
+                return 0;
+            }
             ModelAsync(root).GetAwaiter().GetResult();
             int activityChecks = ActivityChecks.RunAsync(root).GetAwaiter().GetResult();
             Application.EnableVisualStyles();
-            HumanMessages(root);
-            HumanThreadMessages(root, !args.Contains("--managed-only"));
-            int uiChecks = ActivityChecks.Ui(root);
+            int uiChecks = RunUiChecks(() =>
+            {
+                HumanMessages(root);
+                HumanThreadMessages(root, !args.Contains("--managed-only"));
+                return ActivityChecks.Ui(root);
+            });
             using var report = new FileStream(Path.Combine(root, "result.json"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(report, new { status = "ANODE_TIMELINE_CHECKS_OK", checks = _checks, activityChecks = activityChecks + uiChecks, realInputSent = false, liveSeatStarted = false });
             Console.WriteLine($"ANODE_TIMELINE_CHECKS_OK checks={_checks} realInputSent=false liveSeatStarted=false");
@@ -41,6 +51,27 @@ internal static class TimelineChecks
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex.ToString()); return 1; }
+    }
+
+    private static int RunUiChecks(Func<int> checks)
+    {
+        // DoEvents alone tears down the WinForms synchronization context on return.
+        // Keep a real message loop, as the viewer does, so async previews resume on the UI thread.
+        // A hidden dispatcher control is enough; no form, seat or real input is needed.
+        using var context = new ApplicationContext();
+        using var dispatcher = new Control();
+        _ = dispatcher.Handle;
+        int result = 0;
+        Exception? failure = null;
+        dispatcher.BeginInvoke(new Action(() =>
+        {
+            try { result = checks(); }
+            catch (Exception ex) { failure = ex; }
+            finally { context.ExitThread(); }
+        }));
+        Application.Run(context);
+        if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        return result;
     }
 
     internal static string ForSelfTest()

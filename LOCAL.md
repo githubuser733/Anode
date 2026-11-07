@@ -4,6 +4,8 @@
 
 本次入口整理快照：`local-2026.11.07.1`；上一迁移快照：`local-2026.11.06.1`。这些是源码与配套工具的 Git 标签，活动程序的原始构建提交仍以运行清单为准。
 
+最新验收工具修正：`local-2026.11.07.2`。Timeline 离线超时已定位为测试消息循环问题并修正，完整检查连续五轮通过；正式 Viewer 和活动程序未替换。详见 `operations/docs/Timeline-超时诊断与验收修正-20261107.md`。
+
 - `operations/scripts`、`operations/config`、`operations/launchers`、`operations/docs`：原父目录的配套系统，纳入 Git。
 - `operations/work`：当前程序和应用运行数据；`operations/artifacts`：监控数据库、报告、历史证据、恢复副本；`tools`：SDK/缓存。这些均不提交。
 - 活动程序、原始源码提交、SHA256：`operations/config/anode-local-mcp.json`。当前程序产品版本仍为 `0.11.3`，本地发布标签独立命名。
