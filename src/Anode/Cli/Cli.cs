@@ -44,7 +44,7 @@ internal static partial class Cli
         }
 
         // Resolve before any role logs, including scheduled and elevated launches.
-        if (command is "up" or "start" or "rendering" or "__seat-host" or "__apply-setup" or "__log-probe")
+        if (command is "up" or "start" or "open" or "rendering" or "__seat-host" or "__apply-setup" or "__log-probe")
         {
             try
             {
@@ -76,6 +76,8 @@ internal static partial class Cli
                 return ViewerPreview.Run(rest);
             case "__timeline-check":
                 return TimelineChecks.Run(rest);
+            case "__native-open-check":
+                return NativeOpenChecks.Run();
             case "__text-check":
                 return TextReadingChecks.Run();
             case "__remember-login-check":
@@ -124,6 +126,7 @@ internal static partial class Cli
                 "setup" => Setup(rest),
                 "up" => Up(rest),
                 "start" => StartDetached(rest).GetAwaiter().GetResult(),
+                "open" => Open(rest),
                 "status" => Status(rest).GetAwaiter().GetResult(),
                 "lease" => LeaseCommand(rest).GetAwaiter().GetResult(),
                 "kill" or "stop" => Simple("seat.stop").GetAwaiter().GetResult(),
@@ -849,6 +852,10 @@ internal static partial class Cli
             + "visible viewer and a new daemon.",
             ("anode start --hidden", "start the seat in the background; returns when it is ready"),
             ("anode start [options]", "the same, with the viewer open unless --hidden")),
+        Row("Start here", "open", SeatOptionList, 0,
+            "A Windows GUI entry with native error dialogs. If a daemon is running, only show its viewer; "
+            + "do not restart or reconnect its seat. Startup options apply only to a new daemon. --hidden is refused.",
+            ("anode open [options]", "open the existing viewer, or start Anode with these options")),
         Row("Start here", "capabilities", null, 0,
             "--no-capture skips the test capture. Needs no lease. A ready report does not prove that an application received input.",
             ("anode capabilities [--json] [--no-capture]", "report seat capture and known input blockers")),
@@ -1254,6 +1261,8 @@ internal static partial class Cli
                 throw new UsageException("--sign-in requires a visible viewer; remove --hidden.");
             case "start" or "up" when options.Flag("remember-login") && options.Flag("hidden"):
                 throw new UsageException("--remember-login may open Windows sign-in; remove --hidden.");
+            case "open" when options.Flag("hidden"):
+                throw new UsageException("open is the visible Windows entry; use start --hidden for a hidden seat.");
             case "control" when words.Count == 1 && words[0].ToLowerInvariant() is not ("take" or "give"):
                 throw new UsageException($"control takes take or give, not '{words[0]}'.");
             case "click" when words.Count == 1 || !words.All(IsInteger):

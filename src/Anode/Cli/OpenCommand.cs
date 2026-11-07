@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Anode.Core.Bridge;
 using Anode.Core.Launch;
 using Anode.Core.Session;
 using Anode.Core.Util;
@@ -12,7 +13,7 @@ internal static partial class Cli
     /// starting Anode first when it is not running. There is no console to print into,
     /// so everything that needs words is a dialog.
     /// </summary>
-    private static int Open()
+    private static int Open(string[]? startupArguments = null)
     {
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
@@ -23,13 +24,9 @@ internal static partial class Cli
         {
             using (var running = Connect(autoStart: false).GetAwaiter().GetResult())
             {
-                if (running is not null)
+                if (Task.Run(() => ShowOpenedViewerAsync(running, resumeStoppedSeat: startupArguments is null)).GetAwaiter().GetResult())
                 {
                     Log.Info("opened from Windows: showing the running viewer");
-                    RequestAsync(running, "seat.show").GetAwaiter().GetResult();
-                    // Opening Anode after someone pressed Stop seat brings the seat back, as it
-                    // would when Anode was not running. A running seat answers immediately.
-                    RequestAsync(running, "seat.start", timeoutMs: 180_000).GetAwaiter().GetResult();
                     return 0;
                 }
             }
@@ -38,7 +35,7 @@ internal static partial class Cli
             if (failures.Length > 0 && !OfferSetup(failures)) return 3;
 
             Log.Info("opened from Windows: starting Anode with its viewer");
-            DaemonLauncher.Launch(Array.Empty<string>());
+            DaemonLauncher.Launch(startupArguments ?? Array.Empty<string>());
             // Wait on the thread pool: a setup dialog may have left a UI synchronization context
             // on this thread, and blocking on a continuation posted to it would never finish.
             using var client = Task.Run(() => WaitForDaemon(TimeSpan.FromSeconds(30))).GetAwaiter().GetResult();
@@ -51,7 +48,7 @@ internal static partial class Cli
             }
             // The viewer first appears without taking focus, so an agent's start cannot steal
             // keystrokes. This start came from a click, so bring it forward.
-            Task.Run(() => RequestAsync(client, "seat.show")).GetAwaiter().GetResult();
+            Task.Run(() => ShowOpenedViewerAsync(client, resumeStoppedSeat: false)).GetAwaiter().GetResult();
             return 0;
         }
         catch (SeatTakenException ex)
@@ -68,6 +65,21 @@ internal static partial class Cli
                 "Open troubleshooting", Links.Troubleshooting);
             return 1;
         }
+    }
+
+    // The explicit project shortcut only shows an existing daemon. Preserve the upstream
+    // no-argument Explorer entry's separate behavior of bringing a stopped seat back.
+    internal static async Task<bool> ShowOpenedViewerAsync(JsonPipeClient? client, bool resumeStoppedSeat)
+    {
+        if (client is null) return false;
+        var shown = await RequestAsync(client, "seat.show").ConfigureAwait(false);
+        if (shown.Bool("ok") != true) throw new InvalidOperationException(shown.Str("error") ?? "The viewer could not be shown.");
+        if (resumeStoppedSeat)
+        {
+            var started = await RequestAsync(client, "seat.start", timeoutMs: 180_000).ConfigureAwait(false);
+            if (started.Bool("ok") != true) throw new InvalidOperationException(started.Str("error") ?? "The seat could not start.");
+        }
+        return true;
     }
 
     /// <summary>

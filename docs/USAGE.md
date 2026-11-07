@@ -84,6 +84,7 @@ anode up                     # foreground, viewer visible
 anode start                  # detached, returns when the seat is ready
 anode start --hidden         # the same, with the viewer kept closed
 anode up --width 1920 --height 1080 --audio
+anode open --width 1920 --height 1080 --remember-login --clipboard
 ```
 
 The viewer appears **without taking focus**, so a seat can come up mid-sentence without eating your
@@ -92,6 +93,11 @@ keystrokes. It starts in **view only**: your stray clicks do not reach the seat.
 
 Opening **Anode** from the Start menu (the installer adds it) or double-clicking `anode.exe` brings
 the viewer to the front, starting Anode or a stopped seat first.
+
+For a project shortcut with explicit startup options, use `anode open [options]`. It uses native
+Windows dialogs for errors. If Anode is already running, it only shows the existing viewer;
+it leaves a stopped or disconnected seat for the user to handle. Startup options apply when
+there is no daemon. `open` requires a visible viewer, so it refuses `--hidden`.
 
 Until Remote Desktop connects, and whenever it disconnects, the viewer shows the seat's state and
 message in place of the picture, with a progress indicator while something is under way. The seat
