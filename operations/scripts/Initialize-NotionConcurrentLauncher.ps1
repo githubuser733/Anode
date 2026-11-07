@@ -1,8 +1,8 @@
-param([switch]$CheckOnly)
+﻿param([switch]$CheckOnly)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $spec=Get-Content -LiteralPath (Join-Path $root 'config\notion-concurrent.json') -Raw -Encoding UTF8|ConvertFrom-Json
-$path=Join-Path (Join-Path $root 'launchers') $spec.shortcut
+$path=Join-Path (Join-Path $root 'launchers\apps') $spec.shortcut
 $target=(Get-Command powershell.exe).Source
 $arguments='-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'Start-NotionConcurrentInAnode.ps1')+'" -ShowErrors'
 $shell=New-Object -ComObject WScript.Shell

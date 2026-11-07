@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "main": "Anode.lnk",
+  "entries": [
+    {
+      "path": "Anode.lnk",
+      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "arguments": "-X utf8 -B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\anode_main.py\"",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-screenshot-viewer-20261106-734d2b\\publish\\anode.exe,0",
+      "description": "Anode - open or start the verified current version"
+    },
+    {
+      "path": "operations\\launchers\\apps\\Alpha-ReadOnly-In-Anode.lnk",
+      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "arguments": "-B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\alpha_readonly\\launch_in_anode.py\" --show-errors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Alpha\\Alpha.exe,0",
+      "description": "Alpha 只读副窗口：共用原 Alpha 数据，在现有 Anode 中打开"
+    },
+    {
+      "path": "operations\\launchers\\apps\\Alpha-Shared-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\launch_shared_alpha_in_anode.ps1\" -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Alpha\\Alpha.exe,0",
+      "description": "Open inside Anode: reuse original Alpha data; other sessions must be closed."
+    },
+    {
+      "path": "operations\\launchers\\apps\\GrokBot-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\Start-AppInAnode.ps1\" -App grokbot -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Grok Bot\\Grok Bot.exe,0",
+      "description": "Open inside Anode: grokbot with a separate desktop runtime"
+    },
+    {
+      "path": "operations\\launchers\\apps\\Notion-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\Start-NotionConcurrentInAnode.ps1\" -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Notion\\Notion.exe,0",
+      "description": "Notion in Anode with an owned independent runtime and initial host login snapshot"
+    },
+    {
+      "path": "operations\\launchers\\apps\\Notion-Shared-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\Start-NotionInAnode.ps1\" -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Notion\\Notion.exe,0",
+      "description": "Notion in Anode: same host profile; close Notion in other sessions first"
+    },
+    {
+      "path": "operations\\launchers\\apps\\TRAE-CN-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\Start-AppInAnode.ps1\" -App trae -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Trae CN\\Trae CN.exe,0",
+      "description": "Open inside Anode: trae with a separate desktop runtime"
+    },
+    {
+      "path": "operations\\launchers\\apps\\WorkBuddy-Shared-In-Anode.lnk",
+      "target": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "arguments": "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\launch_shared_workbuddy_in_anode.ps1\" -Variant workbuddy -ShowErrors",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": ",0",
+      "description": "Open inside Anode: shared WorkBuddy config and separate Electron runtime"
+    },
+    {
+      "path": "operations\\launchers\\monitoring\\企微命中转发-停止.lnk",
+      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "arguments": "-X utf8 -B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\wechat_forward\\launcher.py\" Stop",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": ",0",
+      "description": ""
+    },
+    {
+      "path": "operations\\launchers\\monitoring\\企微命中转发-启动.lnk",
+      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "arguments": "-X utf8 -B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\wechat_forward\\launcher.py\" Start",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": ",0",
+      "description": ""
+    },
+    {
+      "path": "operations\\launchers\\monitoring\\微信群关键词提醒-托盘.lnk",
+      "target": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\wechat-resident-tray-20261104-224309-1f8eaf46\\WeChatResidentTray.exe",
+      "arguments": "--root \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\" --resume",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\wechat-resident-tray-20261104-224309-1f8eaf46\\WeChatResidentTray.exe,0",
+      "description": "微信群关键词提醒：本机只读监控，托盘后台运行"
+    },
+    {
+      "path": "operations\\launchers\\monitoring\\群消息监测看板.lnk",
+      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "arguments": "-X utf8 -B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\wechat_dashboard\\server.py\" open",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": ",0",
+      "description": "本机群消息监测看板：状态、命中、提醒与历史报告"
+    }
+  ],
+  "unavailable": [
+    {
+      "reason": "Configured executable missing; only an update staging directory was found",
+      "name": "OpenCode",
+      "sha256": "A820B6A44DF5831AA717C5816E2CF61FFEBDE7099D7F52560D4523B161C3550F",
+      "archivedShortcut": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\artifacts\\entrypoints-20261107\\retired-launchers\\unavailable\\OpenCode-In-Anode.lnk"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-param([switch]$CheckOnly)
+﻿param([switch]$CheckOnly)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $config = Get-Content -LiteralPath (Join-Path $root 'config\multiopen-apps.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -7,7 +7,7 @@ $script = Join-Path $PSScriptRoot 'Start-AppInAnode.ps1'
 $shell = New-Object -ComObject WScript.Shell
 foreach ($entry in $config.apps.PSObject.Properties) {
     $spec = $entry.Value
-    $path = Join-Path (Join-Path $root 'launchers') $spec.shortcut
+    $path = Join-Path (Join-Path $root 'launchers\apps') $spec.shortcut
     $arguments = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$script+'" -App '+$entry.Name+' -ShowErrors'
     if (!(Test-Path -LiteralPath $spec.executable)) { throw "Application missing: $($spec.executable)" }
     if (!(Test-Path -LiteralPath $path)) {

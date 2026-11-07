@@ -1,8 +1,8 @@
-param([switch]$CheckOnly)
+﻿param([switch]$CheckOnly)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $config=Get-Content -LiteralPath (Join-Path $root 'config\notion-shared-host.json') -Raw -Encoding UTF8|ConvertFrom-Json
-$path=Join-Path (Join-Path $root 'launchers') $config.shortcut
+$path=Join-Path (Join-Path $root 'launchers\apps') $config.shortcut
 $target=(Get-Command powershell.exe).Source
 $arguments='-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'Start-NotionInAnode.ps1')+'" -ShowErrors'
 $shell=New-Object -ComObject WScript.Shell

@@ -105,3 +105,5 @@ successful SendInput call alone does not prove that an application received inpu
 ## 本机双仓库路径
 
 本机工作先读取 `../AGENTS.md` 的用户保护规则及 `LOCAL.md`。上文上游构建示例仍保留；本机 SDK 在 `tools/`，集成工具与活动运行清单在 `operations/`。不得用历史日期目录替代 Git 版本管理，亦不得将运行数据、凭据或日志纳入提交。
+
+人工日常启动只使用仓库根目录 `Anode.lnk`，复用活动清单及已运行实例。配套入口归类在 `operations/launchers/apps`、`monitoring`、`maintenance`；不要重新创建并列的 Start/Show/Hide/Timeline/MCP 主入口。`Initialize-ProjectLaunchers.ps1 -CheckOnly` 核验当前清单；`Consolidate-ProjectEntries.ps1` 是已执行的一次性迁移，不用作日常启动或版本发布。
