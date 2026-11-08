@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "executable": "work/anode-screenshot-viewer-20261106-734d2b/publish/anode.exe",
-  "sha256": "c001edaf1de970e0e1936113ac534268bc3e28d7dfb3876de9fd1a87e4532fc8",
+  "executable": "work/anode-current/anode.exe",
+  "sha256": "386937d126a3857d6548600cb0df8f6e9ef9cb69f95063fa5de2c6576ea7b0c7",
   "channel": "main",
   "sourceDirectory": "..",
   "branch": "codex/local-current",
   "sourceStatus": "committed-source",
-  "commit": "c58a6679ec98378d04098bbe11f2566d0659c080",
+  "commit": "3412d1b0e48ecb8fd2058987d0ba7f4f464da4b1",
   "timelineBase": "d0dab51ed7293cf4d0d4eedbdc275e413e47006e",
   "toolCount": 41,
   "stateDirectory": "artifacts/anode-timeline-20261031/runtime-state",
@@ -15,8 +15,8 @@
   "sharedClipboard": true,
   "nativeSignIn": true,
   "rememberWindowsLogin": true,
-  "evidenceDirectory": "artifacts/anode-screenshot-viewer-20261106-734d2b",
+  "evidenceDirectory": "artifacts/anode-slim-20261108",
   "mcpTransport": "stdio",
   "authentication": "none",
-  "localVersion": "local-2026.11.06.1"
+  "localVersion": "local-2026.11.08.1"
 }

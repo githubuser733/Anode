@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "anodeExecutable": "work/anode-screenshot-viewer-20261106-734d2b/publish/anode.exe",
-  "anodeGuide": "work/anode-screenshot-viewer-20261106-734d2b/publish/skills/anode-desktop/SKILL.md",
+  "anodeExecutable": "work/anode-current/anode.exe",
+  "anodeGuide": "work/anode-current/skills/anode-desktop/SKILL.md",
   "anodeChannel": "main",
   "anodeStartupArguments": [
     "--channel",

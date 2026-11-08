@@ -4,11 +4,11 @@
   "entries": [
     {
       "path": "Anode.lnk",
-      "target": "C:\\Users\\Zhang\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
-      "arguments": "-X utf8 -B \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\scripts\\anode_main.py\"",
-      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
-      "icon": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-screenshot-viewer-20261106-734d2b\\publish\\anode.exe,0",
-      "description": "Anode - open or start the verified current version"
+      "target": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-current\\anode.exe",
+      "arguments": "--channel main open --width 1920 --height 1080 --state-dir \"F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\artifacts\\anode-timeline-20261031\\runtime-state\" --clipboard --remember-login",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode",
+      "icon": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\work\\anode-current\\anode.exe,0",
+      "description": "Anode - native open or show existing viewer"
     },
     {
       "path": "operations\\launchers\\apps\\Alpha-ReadOnly-In-Anode.lnk",

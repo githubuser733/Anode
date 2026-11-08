@@ -2,6 +2,8 @@
 
 Anode 的唯一日常主入口在项目根目录：`../../Anode.lnk`。Ghost 主入口为 `../../../ghost/Ghost.lnk`。
 
+Anode.lnk 现在直接指向 `../work/anode-current/anode.exe`，使用原生 `open` 命令。GUI 和全局 MCP 均不经过 Python 主启动包装；应用副窗口和监控内部所需的 Python 工具继续保留。
+
 - `apps/`：Alpha、WorkBuddy、Notion 等第三方应用的已保留入口。
 - `monitoring/`：托盘监控、群消息看板、企微转发启停。
 - `maintenance/`：高级 CLI 工作流和远控维护工具。

@@ -1,4 +1,4 @@
-"""Recycle exactly the three diagnostic builds approved in the current 2026-11-08 request."""
+"""Recycle a fixed, separately approved 2026-11-08 build batch; never widen its target list."""
 import argparse
 import importlib.util
 import json
@@ -17,29 +17,39 @@ def write_new(name, value):
 
 
 def main():
+    global EVIDENCE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--batch', choices=['transitional', 'validated-caches'], default='transitional')
     args = parser.parse_args()
+    if args.batch == 'validated-caches':
+        EVIDENCE = EVIDENCE / 'verified-cache-cleanup'
+        targets = [OPS / 'artifacts/timeline-timeout-20261107/verified-build',
+                   OPS / 'artifacts/restructure-20261106/build-new-paths',
+                   OPS / 'artifacts/anode-slim-20261108/build']
+        expected = (3, 1508, 568355458)
+    else:
+        targets = [SCOPE / name for name in NAMES]
+        expected = (3, 1503, 558265721)
     EVIDENCE.mkdir(parents=True, exist_ok=True)
     spec = importlib.util.spec_from_file_location('verified_recycle', OPS / 'scripts/Recycle-ApprovedAnodeVersions-20261106.py')
     helper = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(helper)
     approval = json.loads((EVIDENCE / 'cleanup-approval.json').read_text('utf-8-sig'))
-    targets = [SCOPE / name for name in NAMES]
     if not approval.get('activeUserReplyVerified') or approval['targets'] != [str(path) for path in targets]:
         raise RuntimeError('Current approval does not cover these targets')
     if (EVIDENCE / 'recycle-execution.jsonl').exists():
         raise RuntimeError('This batch was already attempted; inspect its receipt instead of replaying')
     manifest = []
     for target in targets:
-        if target.resolve(strict=True) != target or target.parent != SCOPE or target in (OPS, SCOPE, Path(target.anchor)):
+        if target.resolve(strict=True) != target or not target.is_relative_to(OPS / 'artifacts') or target in (OPS, OPS / 'artifacts', SCOPE, Path(target.anchor)):
             raise RuntimeError('Target escaped the displayed scope')
         files, _ = helper.tree(target)
         records = [{'path': name, 'size': Path(name).stat().st_size, 'sha256': helper.digest(name)} for name in sorted(files)]
         manifest.append({'targetDirectory': str(target), 'files': records})
     count = sum(len(row['files']) for row in manifest)
     size = sum(item['size'] for row in manifest for item in row['files'])
-    if (len(manifest), count, size) != (3, 1503, 558265721):
+    if (len(manifest), count, size) != expected:
         raise RuntimeError('Target count or size changed since approval')
     before_processes = helper.protected_processes(targets)
     capacity = helper.recycle_capacity(size)
@@ -98,7 +108,7 @@ def main():
         write_new('cleanup-result.json', {'result': 'RECYCLE_VERIFIED', 'targets': 3, 'files': count, 'bytes': size,
                   'entries': completed, 'capacityBefore': capacity, 'permanentDeletionUsed': False,
                   'recycleBinEmptied': False, 'preExistingRecycleEntriesPreserved': True})
-        print('RECYCLE_VERIFIED targets=3 files=1503 originalsAbsent=true hashes=1503', flush=True)
+        print(f'RECYCLE_VERIFIED targets=3 files={count} originalsAbsent=true hashes={count}', flush=True)
     except Exception as error:
         write_new('cleanup-failure.json', {'error': str(error), 'completed': completed,
                   'originalExists': {str(path): path.exists() for path in targets}, 'permanentDeletionFallback': False})
