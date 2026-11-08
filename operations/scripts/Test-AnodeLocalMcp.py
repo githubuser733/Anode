@@ -10,9 +10,9 @@ import threading
 import time
 import tomllib
 import uuid
+from anode_local_mcp import runtime
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "scripts" / "anode_local_mcp.py"
 
 
 def save(path, value):
@@ -76,7 +76,9 @@ def main():
     out.mkdir()
     before = args.user_config.read_bytes()
     cfg = tomllib.loads(before.decode("utf-8-sig"))
-    expected = [sys.executable, "-B", "-u", str(LAUNCHER)]
+    active, expected = runtime()
+    configured = cfg["mcp_servers"]["anode"]
+    assert [configured["command"], *configured["args"]] == expected, "Global MCP entry differs from the active native build"
     results = []
     for cwd in (ROOT, Path.home()):
         if not args.entry_only:

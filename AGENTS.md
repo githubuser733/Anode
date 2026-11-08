@@ -108,6 +108,8 @@ successful SendInput call alone does not prove that an application received inpu
 
 人工日常启动只使用仓库根目录 `Anode.lnk`，直接运行 `operations/work/anode-current/anode.exe open ...`，复用活动清单及已运行实例。配套入口归类在 `operations/launchers/apps`、`monitoring`、`maintenance`；不要重新创建并列主入口或 Python/PowerShell 日常启动包装。`Initialize-ProjectLaunchers.ps1 -CheckOnly` 核验原生目标。上一运行版由 `operations/config/anode-previous.json` 记录；旧主入口脚本与一次性迁移脚本已归档。
 
+当前规则在聚合父目录 `../AGENTS.md`；完整旧记录在 `operations/docs/history/AGENTS-完整历史-20261108.md`，不能用旧授权/旧路径覆盖当前规则。历史一次性脚本在 `operations/maintenance/history`，不重新执行；原始下载包在 `operations/artifacts/recovery/original-downloads`。五个无触发器的旧 AnodeTimeline 试验任务已备份 XML 并停用，当前业务任务保持。
+
 ## UU 日常免提权（2026-11-07）
 
 原 `operations/launchers/maintenance/UU-Console-Enable.cmd` 已改为普通权限入口；完整绑定时不重启 worker，需要重绑时请求已安装的固定 SYSTEM 任务。Enable/Restore-v1 两任务只按需运行，没有开机/登录/定时触发器。不要恢复日常 `Start-Process -Verb RunAs`，也不要关闭 UAC 或放宽原服务权限。首次安装已成功，不重复触发 UAC。

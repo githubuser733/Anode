@@ -20,9 +20,14 @@ def main():
     global EVIDENCE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true')
-    parser.add_argument('--batch', choices=['transitional', 'validated-caches'], default='transitional')
+    parser.add_argument('--batch', choices=['transitional', 'validated-caches', 'project-reorganization'], default='transitional')
     args = parser.parse_args()
-    if args.batch == 'validated-caches':
+    if args.batch == 'project-reorganization':
+        EVIDENCE = OPS / 'artifacts/project-slim-20261108/recycle'
+        targets = [OPS / 'artifacts/restructure-20261106/build',
+                   OPS / 'artifacts/restructure-20261106/previous-mcp-runtime']
+        expected = (2, 505, 262922231)
+    elif args.batch == 'validated-caches':
         EVIDENCE = EVIDENCE / 'verified-cache-cleanup'
         targets = [OPS / 'artifacts/timeline-timeout-20261107/verified-build',
                    OPS / 'artifacts/restructure-20261106/build-new-paths',
@@ -63,7 +68,7 @@ def main():
              | shellcon.FOF_NOCONFIRMATION | shellcon.FOF_WANTNUKEWARNING | shellcon.FOF_NO_CONNECTED_ELEMENTS)
     operation = pythoncom.CoCreateInstance(shell.CLSID_FileOperation, None, pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IFileOperation)
     operation.SetOperationFlags(flags)
-    print(f'TIMELINE_RECYCLE_PREFLIGHT_OK targets=3 files={count} bytes={size}', flush=True)
+    print(f'TIMELINE_RECYCLE_PREFLIGHT_OK targets={len(targets)} files={count} bytes={size}', flush=True)
     if not args.execute:
         return
     write_new('cleanup-manifest.json', {'targets': manifest, 'files': count, 'bytes': size})
@@ -105,10 +110,10 @@ def main():
             raise RuntimeError('A protected process changed during cleanup')
         if any(path.exists() for path in targets) or sum(row['files'] for row in completed) != count:
             raise RuntimeError('Final inventory differs')
-        write_new('cleanup-result.json', {'result': 'RECYCLE_VERIFIED', 'targets': 3, 'files': count, 'bytes': size,
+        write_new('cleanup-result.json', {'result': 'RECYCLE_VERIFIED', 'targets': len(targets), 'files': count, 'bytes': size,
                   'entries': completed, 'capacityBefore': capacity, 'permanentDeletionUsed': False,
                   'recycleBinEmptied': False, 'preExistingRecycleEntriesPreserved': True})
-        print(f'RECYCLE_VERIFIED targets=3 files={count} originalsAbsent=true hashes={count}', flush=True)
+        print(f'RECYCLE_VERIFIED targets={len(targets)} files={count} originalsAbsent=true hashes={count}', flush=True)
     except Exception as error:
         write_new('cleanup-failure.json', {'error': str(error), 'completed': completed,
                   'originalExists': {str(path): path.exists() for path in targets}, 'permanentDeletionFallback': False})

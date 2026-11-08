@@ -1,0 +1,64 @@
+当前配置和适用范围
+
+Anode 使用 work\releases\anode-v0.11.3\portable\anode.exe，channel 为 main。
+启动参数：--channel main start --width 1920 --height 1080 --clipboard --sign-in
+已验证范围：Anode 0.11.3、WorkBuddy 5.9.3、主子会话纯文本剪贴板双向传输。
+WorkBuddyAI 5.9.4 的共享配置分支、图片或文件剪贴板尚未完成验证。
+本次路径整理不重启 Anode，不修改 Windows 登录凭据或软件主配置。
+
+WorkBuddy 为什么要专用入口
+
+主桌面和 Anode 子会话共用文件系统，但 WorkBuddy 的默认 Electron 运行目录
+有单实例锁。第二次普通启动可能通知主桌面实例后退出，子会话看起来没有反应。
+专用启动脚本对新进程设置：
+WORKBUDDY_CONFIG_DIR=C:\Users\Zhang\.workbuddy
+CODEBUDDY_CONFIG_DIR=C:\Users\Zhang\.workbuddy
+WORKBUDDY_USER_DATA_DIR=F:\AI infrastructure\agent-Windows-operation\work\recheck-20261031-shared\workbuddy-electron
+前两项让聊天和业务配置共用主桌面目录，后一项让两个会话分别持有运行锁。
+这些环境变量只影响本次启动的进程，不写入系统全局环境。
+启动器会检查当前是否为 Anode 子会话，从主桌面直接启动会拒绝并说明原因。
+
+目录使用约定
+
+主配置 C:\Users\Zhang\.workbuddy 是 WorkBuddy 的实际业务目录，应继续共用。
+项目 work 内的独立 Electron 运行目录也继续沿用；运行中不复制或迁移它。
+Anode 自身状态和系统日志仍在 C:\Users\Zhang\AppData\Local\Anode。
+这些应用标准目录不属于 Codex 对话交付目录。
+所有本项目脚本、快捷方式、参数记录、测试报告与截图均以本项目为入口。
+历史归档保持原始字节和旧路径文字，仅作证据；当前操作以 README 和 config 为准。
+
+MCP 工具桥
+
+在项目根目录的 PowerShell 中执行：
+$bridge = .\scripts\Start-ProjectMcp.ps1
+& .\scripts\internal\live_call.ps1 -Port $bridge.port -Tool seat_status
+
+Start-ProjectMcp 会复用本项目已运行的桥，或隐藏启动新的本地 Python 桥。
+工具端口由系统动态分配，不要写死旧端口。
+它只初始化 MCP 客户端；不会启动、停止或重建 Windows 子会话。
+新证据写入 artifacts\mcp\project-mcp-<时间>-<随机标记>\anode。
+运行元数据在 work\project-mcp-<时间>-<随机标记>\anode\bridge.json。
+seat_status 只读，不会争抢键鼠。其他工具仍需遵循 Anode 的 lease 与人工控制规则；
+完整工具说明在 config 指向的 anodeGuide 文件。
+
+验证与恢复入口
+
+scripts\Test-ProjectSetup.ps1：检查配置、脚本语法、快捷方式和逐文件哈希。
+scripts\Test-ProjectSetup.ps1 -Live：另查当前分辨率、共享配置启动记录、
+主子桌面并发进程与测试回复；要求两个会话的 WorkBuddy 当前仍在运行。
+scripts\Initialize-ProjectLaunchers.ps1 -CheckOnly：只回读核对四个快捷方式。
+scripts\launch_shared_workbuddy_in_anode.ps1 -Preflight：报告当前会话及能否启动，
+不打开应用；主桌面正常应显示 allowed=false。
+Initialize 不覆盖已存在且内容不同的快捷方式；更改配置前先保留原文件。
+原始聊天验证记录为“共用桌面并发测试”，助手回复 ANODE_SHARED_WORKBUDDY_OK。
+
+独立会话的窗口不能直接拖入主桌面。用 Hide 保留子会话、Show 人工接管；
+如需主桌面继续操作，在主桌面 WorkBuddy 打开同一条共享聊天即可。
+其他软件是否支持并发和共享配置需要分别验证，不能照搬 WorkBuddy 的做法。
+
+Ghost 备用项目（2026-11-04）
+完整目录位于 work\ghost，与 work\anode-fork 并列；已验证配置见 config\ghost-runtime.json。
+launchers\Ghost-CLI.cmd 为 CLI，launchers\Ghost-MCP.cmd 为 stdio MCP，launchers\Ghost-Check.cmd 为只读检查入口。
+检查命令：powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-GhostProject.ps1
+预期末行 GHOST_PROJECT_SETUP_OK；doctor 可选视觉密钥 WARN 不影响必需项通过。
+本次未重启 Anode，未重复进行 GUI 或 MCP 冷启动验证。原始历史证据仍在 artifacts\history-20261031。
