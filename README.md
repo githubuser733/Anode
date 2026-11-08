@@ -1,5 +1,33 @@
 # <img src="assets/anode.svg" width="36" height="36" alt=""> Anode — a background Windows desktop for AI agents
 
+## 本分支：Anode 二次开发版
+
+这是 [githubuser733/Anode](https://github.com/githubuser733/Anode) 的个人维护分支，基于 [skulitom/Anode](https://github.com/skulitom/Anode)。原作者、上游项目与 [MIT 许可证](LICENSE) 保持不变；这里的本机改进不代表上游已经合并或发布。
+
+默认展示分支为 **`stable`**，本地开发分支为 `codex/local-current`。当前程序产品版本为 `0.11.3`，本地源码快照标签为 `local-2026.11.08.4`；标签、源码提交和实际运行程序的关系见 [活动清单](operations/config/anode-local-mcp.json)。后续文档提交不更换运行程序。
+
+### 本分支的改进
+
+- **Timeline / Activity**：保留时间线与活动记录集成；修正离线测试消息循环导致的超时。
+- **文本读取增强**：扩展 UI Automation 文本来源、字符预算和剪贴板序列校验，保持 41 个 MCP 工具。
+- **记住 Windows 登录**：通过 Windows 原生窗口输入密码，由 Windows Credential Manager 保存；不把密码写死在配置或脚本中。
+- **截图浏览**：复用一个预览窗口，支持左右键切换及缩放。
+- **原生启动入口**：已配置的本机使用根目录 `Anode.lnk`，直接运行 EXE 的 `open` 命令；已有宿主时显示原查看器。配套应用、监控和维护入口集中在 `operations/launchers/`。
+
+### 使用与验证边界
+
+- 本仓库保存源码和配套脚本，**不包含可直接使用的本机安装环境**。运行 EXE、应用数据、开发 SDK、日志与 Windows 凭据不会随 Git 克隆。快捷方式及部分配置含原部署机器的绝对路径，换机后须重新配置，不能直接双击视为安装完成。
+- 本机入口、开发环境与目录说明见 [LOCAL.md](LOCAL.md)；构建与部署约束见 [CONTRIBUTING.md](CONTRIBUTING.md)。上游安装命令下载的是上游发布版，不包含本分支的改进。
+- 历史实测覆盖原生入口、保存登录、重复打开、单窗口截图预览与 MCP 工具一致性；检查范围及限制见 [原生入口验收记录](operations/docs/Anode-原生入口与精简-20261108.md)。记录中的旧目录保留策略已由当前“只保留一个运行版”规则取代。
+- **仍未全面闭环**：Codex 偶发重启、连续重连的焦点/鼠标保护、Windows 重启恢复与长期稳定性。输入法冲突和导入导出文件对话框真人验收仍暂停；不得把历史短测结果当成所有环境下的稳定保证。
+- 已配置本机的只读检查：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File operations/scripts/Test-ProjectSetup.ps1`，预期末行 `PROJECT_SETUP_OK`。新克隆尚未部署运行文件时，不适用此检查。
+
+**上游资料**：[原项目](https://github.com/skulitom/Anode) · [上游官网](https://skulitom.github.io/Anode/) · [上游发布包](https://github.com/skulitom/Anode/releases)。下方保留上游说明，其演示、安装方式、徽章和性能数据按上游版本理解。
+
+---
+
+## 上游项目说明
+
 <!-- mcp-name: io.github.skulitom/anode -->
 
 **Computer-use agents that drive your Windows desktop take over your mouse and keyboard; Anode gives them their own desktop instead.**
@@ -13,8 +41,8 @@ keep working in yours.
 <sub>Recorded inside the seat with Anode 0.11.0, from real MCP tool calls. Idle time between calls is
 cut, and the nine clicks, which took 0.4 s, are shown four times slower.</sub>
 
-[![Release](https://img.shields.io/github/v/release/skulitom/Anode)](https://github.com/skulitom/Anode/releases/latest)
-[![Windows build](https://github.com/skulitom/Anode/actions/workflows/build.yml/badge.svg)](https://github.com/skulitom/Anode/actions/workflows/build.yml)
+[![Upstream release](https://img.shields.io/github/v/release/skulitom/Anode?label=upstream%20release)](https://github.com/skulitom/Anode/releases/latest)
+[![Upstream Windows build](https://github.com/skulitom/Anode/actions/workflows/build.yml/badge.svg)](https://github.com/skulitom/Anode/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 - **Who it's for:** developers on Windows who let an AI agent test their desktop apps, browser pages or Android apps,
