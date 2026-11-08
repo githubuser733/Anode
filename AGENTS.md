@@ -106,7 +106,7 @@ successful SendInput call alone does not prove that an application received inpu
 
 本机工作先读取 `../AGENTS.md` 的用户保护规则及 `LOCAL.md`。上文上游构建示例仍保留；本机 SDK 在 `tools/`，集成工具与活动运行清单在 `operations/`。不得用历史日期目录替代 Git 版本管理，亦不得将运行数据、凭据或日志纳入提交。
 
-人工日常启动只使用仓库根目录 `Anode.lnk`，直接运行 `operations/work/anode-current/anode.exe open ...`，复用活动清单及已运行实例。配套入口归类在 `operations/launchers/apps`、`monitoring`、`maintenance`；不要重新创建并列主入口或 Python/PowerShell 日常启动包装。`Initialize-ProjectLaunchers.ps1 -CheckOnly` 核验原生目标。上一运行版由 `operations/config/anode-previous.json` 记录；旧主入口脚本与一次性迁移脚本已归档。
+人工日常启动只使用仓库根目录 `Anode.lnk`，直接运行 `operations/work/anode-current/anode.exe open ...`，复用活动清单及已运行实例。配套入口归类在 `operations/launchers/apps`、`monitoring`、`maintenance`；不要重新创建并列主入口或 Python/PowerShell 日常启动包装。`Initialize-ProjectLaunchers.ps1 -CheckOnly` 核验原生目标。只保留当前一个运行版，策略为 `operations/config/runtime-retention.json`；不再保留上一版运行目录。旧清单与试验入口只作历史材料，源码历史使用 Git。
 
 当前规则在聚合父目录 `../AGENTS.md`；完整旧记录在 `operations/docs/history/AGENTS-完整历史-20261108.md`，不能用旧授权/旧路径覆盖当前规则。历史一次性脚本在 `operations/maintenance/history`，不重新执行；原始下载包在 `operations/artifacts/recovery/original-downloads`。五个无触发器的旧 AnodeTimeline 试验任务已备份 XML 并停用，当前业务任务保持。
 

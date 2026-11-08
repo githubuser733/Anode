@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "policy": "current-only",
+  "executable": "work/anode-current/anode.exe",
+  "retiredDirectories": ["work/anode-screenshot-viewer-20261106-734d2b"]
+}

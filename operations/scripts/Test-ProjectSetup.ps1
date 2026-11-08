@@ -34,5 +34,13 @@ foreach ($file in @((Get-Item -LiteralPath (Join-Path $root 'config\verified-des
     if ((Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8).Contains($legacyPrefix)) { throw "Legacy output dependency: $($file.FullName)" }
 }
 'PROJECT_PATHS_OK'
+$retention=Get-Content -LiteralPath (Join-Path $root 'config\runtime-retention.json') -Raw -Encoding UTF8|ConvertFrom-Json
+$activeRuntime=Get-Content -LiteralPath (Join-Path $root 'config\anode-local-mcp.json') -Raw -Encoding UTF8|ConvertFrom-Json
+if($retention.policy -cne 'current-only' -or $retention.executable -cne $activeRuntime.executable){throw 'Expected single current Anode retention policy'}
+if(@($retention.retiredDirectories).Count -ne 1 -or $retention.retiredDirectories[0] -cne 'work/anode-screenshot-viewer-20261106-734d2b'){throw 'Retired runtime inventory differs'}
+foreach($retired in $retention.retiredDirectories){if(Test-Path -LiteralPath (Join-Path $root $retired)){throw ('Retired Anode runtime still exists: '+$retired)}}
+$runtimeCopies=@(Get-ChildItem -LiteralPath (Join-Path $root 'work') -Directory -Filter 'anode-*'|ForEach-Object {Get-ChildItem -LiteralPath $_.FullName -Recurse -Filter 'anode.exe' -File})
+if($runtimeCopies.Count -ne 1 -or $runtimeCopies[0].FullName -ine (Join-Path $root $activeRuntime.executable)){throw 'Expected exactly one current Anode runtime executable'}
+'ANODE_SINGLE_CURRENT_RUNTIME_OK'
 if ($Live) { & (Join-Path $PSScriptRoot 'Verify-Shared-WorkBuddy.ps1') }
 'PROJECT_SETUP_OK'

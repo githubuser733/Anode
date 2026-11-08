@@ -2,7 +2,7 @@
 
 先读取上级 `../AGENTS.md`。本仓库保留 Anode 上游历史及本机 Timeline、文本增强、监控、登录、重连、截图修改；当前分支 `codex/local-current`。
 
-当前运行版：`local-2026.11.08.1`，固定路径 `operations/work/anode-current/anode.exe`；上一版由 `operations/config/anode-previous.json` 记录。当前维护快照 `local-2026.11.08.2` 只整理文档、历史脚本和检查工具，没有替换运行程序。原生入口验收见 `operations/docs/Anode-原生入口与精简-20261108.md`；本次整理见 `operations/docs/双项目精简与当前布局-20261108.md`。
+当前运行版：`local-2026.11.08.1`，固定路径 `operations/work/anode-current/anode.exe`。仅保留这一个运行版，策略见 `operations/config/runtime-retention.json`；旧运行版与候选清单退出活动配置。维护提交不替换当前运行程序。原生入口验收见 `operations/docs/Anode-原生入口与精简-20261108.md`；历史布局见 `operations/docs/双项目精简与当前布局-20261108.md`，其中保留上一版的旧口径已被取消。
 
 - `operations/scripts`、`operations/config`、`operations/launchers`、`operations/docs`：原父目录的配套系统，纳入 Git。
 - `operations/maintenance/history`：退出日常链路的一次性脚本，原内容以 `.txt` 保存；`operations/docs/history`：完整旧说明与根 Agent 历史。原始下载包归入 `operations/artifacts/recovery/original-downloads`。
@@ -15,8 +15,8 @@
 - 只读复核：`powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/Test-ProjectSetup.ps1`。
 - 构建：使用 `tools/dotnet-10.0.403/dotnet.exe`，`DOTNET_CLI_HOME` 指向 `tools/dotnet-home`、`NUGET_PACKAGES` 指向 `tools/nuget-packages`；输出到 `operations/artifacts/` 下新的目录，避免覆盖被占用的活动程序。
 
-开发只修改固定源码目录并提交。源码回滚通过 Git 标签；运行目录切换必须先验证哈希及当前会话，保留当前版和一份明确可回退的发布。历史恢复材料暂存于 `operations/artifacts/restructure-20261106/`，删除仍需用户按完整清单授权。
+开发只修改固定源码目录并提交。源码历史通过 Git 标签保留，不额外保存上一运行版；更新活动程序前先验证哈希及当前会话。历史恢复材料暂存于 `operations/artifacts/restructure-20261106/`，不作为部署运行版；删除仍需用户按完整清单授权。
 
 Timeline 的离线超时已修正；Codex 历史偶发重启、输入/连续重连保护和冷回退登录尚未全面闭环。输入法与导入导出文件对话框真人验收继续暂停，不为目录整理开启这些实验。
 
-2026-11-08 目录整理：60 个未被当前脚本/配置/任务引用的旧证据目录，以及旧 Alpha 浏览器数据和参考文档，已完整迁入 `operations/artifacts/history/consolidated-20261108/`。逐文件哈希和原路径映射在 `operations/artifacts/directory-layout-20261108/receipt.json`，人工索引见 `operations/docs/目录用途与归档索引-20261108.md`。这是可逆归档，不是删除或磁盘空间回收；历史报告中的原路径按该索引查找。UU 执行副本、当前/上一 Anode、正在引用的应用数据和活动监控状态保持原位。
+2026-11-08 目录整理：60 个未被当前脚本/配置/任务引用的旧证据目录，以及旧 Alpha 浏览器数据和参考文档，已完整迁入 `operations/artifacts/history/consolidated-20261108/`。逐文件哈希和原路径映射在 `operations/artifacts/directory-layout-20261108/receipt.json`，人工索引见 `operations/docs/目录用途与归档索引-20261108.md`。该次操作是可逆归档，没有释放空间。后续用户批准回收上一 Anode 及 Ghost 面板两个目录；执行记录见 `operations/artifacts/current-only-20261108/`。UU 执行副本、当前 Anode、正在引用的应用数据和活动监控状态保持原位。

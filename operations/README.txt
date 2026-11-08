@@ -2,7 +2,7 @@
 
 唯一主入口：F:\AI infrastructure\agent-Windows-operation\anode\Anode.lnk
 目标程序：operations\work\anode-current\anode.exe；open 命令显示已有宿主，或在未运行时启动。
-上一运行版清单：config\anode-previous.json。回退登录未重测；不得为整理文件结束正在工作的子会话。
+只保留当前一个运行版，策略见 config\runtime-retention.json；不保留上一运行版，源码历史使用 Git。旧运行版及候选配置已退出日常链路，记录在 artifacts\current-only-20261108。不得为整理文件结束正在工作的子会话。
 
 配套应用入口：launchers\apps；监控和看板：launchers\monitoring；高级工具：launchers\maintenance。
 开发工具：仓库 tools；运行数据：operations\work；证据、数据库和恢复材料：operations\artifacts。
