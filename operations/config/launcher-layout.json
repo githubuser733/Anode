@@ -97,6 +97,30 @@
       "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
       "icon": ",0",
       "description": "本机群消息监测看板：状态、命中、提醒与历史报告"
+    },
+    {
+      "path": "operations\\launchers\\maintenance\\UU-运行记录.lnk",
+      "target": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\artifacts\\uu-console-task-v1",
+      "arguments": "",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\WINDOWS\\System32\\shell32.dll,3",
+      "description": "UU 当前任务输出；只打开记录目录，不执行切换"
+    },
+    {
+      "path": "operations\\launchers\\maintenance\\历史材料.lnk",
+      "target": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\artifacts\\history",
+      "arguments": "",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\WINDOWS\\System32\\shell32.dll,3",
+      "description": "已归档测试与应用数据；不是日常程序入口"
+    },
+    {
+      "path": "operations\\launchers\\maintenance\\目录用途说明.lnk",
+      "target": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations\\docs\\目录用途与归档索引-20261108.md",
+      "arguments": "",
+      "workingDirectory": "F:\\AI infrastructure\\agent-Windows-operation\\anode\\operations",
+      "icon": "C:\\WINDOWS\\System32\\shell32.dll,3",
+      "description": "当前 work、artifacts 的用途及原路径索引"
     }
   ],
   "unavailable": [
